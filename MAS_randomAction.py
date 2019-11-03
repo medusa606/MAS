@@ -8,6 +8,8 @@ import numpy as np
 import cv2
 import time
 import matplotlib.pyplot as plt
+import random
+import os.path
 
 class Environment(object):
 	
@@ -179,17 +181,17 @@ class Environment(object):
 		# find av time to samekerb level
 		# todo
 
-		print("~~~~ env ~~~~")
-		print("xp yp ",xp, yp)
-		print("xa ya ",xa, ya)
-		print("on road ",self.on_road)
-		print("dif y ", self.diff_y)
-		print("diff x ", self.diff_x)
-		print("euclid ", self.euclid)
-		print("inv_euclid ", self.inv_euclid)
-		print("inv_euclid2 ", self.inv_euclid2)
-		print("inv_euclid3 ", self.inv_euclid3)
-		print("~~~~~~~~~~~~~~")
+		# print("~~~~ env ~~~~")
+		# print("xp yp ",xp, yp)
+		# print("xa ya ",xa, ya)
+		# print("on road ",self.on_road)
+		# print("dif y ", self.diff_y)
+		# print("diff x ", self.diff_x)
+		# print("euclid ", self.euclid)
+		# print("inv_euclid ", self.inv_euclid)
+		# print("inv_euclid2 ", self.inv_euclid2)
+		# print("inv_euclid3 ", self.inv_euclid3)
+		# print("~~~~~~~~~~~~~~")
 
 		#return (self.on_road, self.diff_x, self.diff_y, self.euclid, self.inv_euclid, self.inv_euclid2, self.inv_euclid3)
 		return (self.on_road, self.diff_x, self.diff_y, self.euclid,0,0,0)
@@ -327,7 +329,7 @@ class Environment(object):
 		
 	def reset_state(self):
 		
-		print("/n ~ GAME RESTARTING ~/ n")
+		print("\n ~ GAME RESTARTING ~\n")
 		if self.start_position == None:
 			self.position = self.init_start_state()
 		else:
@@ -468,67 +470,6 @@ class Environment(object):
 		key = cv2.waitKey(1)
 		if key == 27: sys.exit()
         
-        
-#import agent
-        
-import random
-
-# ------------------------------------------------------------------------------------------
-# ------------------------------------- Base Agent -----------------------------------------
-# ------------------------------------------------------------------------------------------
-
-class BaseAgent:
-	
-	def __init__(self, alpha, epsilon, discount, action_space, state_space):
- 
-		self.action_space = action_space
-		self.alpha = alpha
-		self.epsilon = epsilon
-		self.discount = discount
-		self.qvalues = np.zeros((state_space, action_space), np.float32)
-		
-	def update(self, state, action, reward, next_state, next_state_possible_actions, done):
-
-		# Q(s,a) = (1.0 - alpha) * Q(s,a) + alpha * (reward + discount * V(s'))
-
-		if done==True:
-			qval_dash = reward
-		else:
-			qval_dash = reward + self.discount * self.get_value(next_state, next_state_possible_actions)
-			
-		qval_old = self.qvalues[state][action]      
-		qval = (1.0 - self.alpha)* qval_old + self.alpha * qval_dash
-		self.qvalues[state][action] = qval
-       
-	def get_best_action(self, state, possible_actions):
-
-		best_action = possible_actions[0]
-		value = self.qvalues[state][possible_actions[0]]
-        
-		for action in possible_actions:
-			q_val = self.qvalues[state][action]
-			if q_val > value:
-				value = q_val
-				best_action = action
-
-		return best_action
-
-	def get_action(self, state, possible_actions):
-         
-		# with probability epsilon take random action, otherwise - the best policy action
-
-		epsilon = self.epsilon
-
-		if epsilon > np.random.uniform(0.0, 1.0):
-			chosen_action = random.choice(possible_actions)
-		else:
-			chosen_action = self.get_best_action(state, possible_actions)
-
-		return chosen_action
-        
-	def get_value(self, state, possible_actions):
-		
-		pass
 
 
 #---------------------------------------------------------------------------------------------
@@ -575,16 +516,16 @@ class FeatAgent:
 
 		# now update the feature weights given the reward
 		difference = (reward + self.alpha * q_val_dash) - qval
-		print("features x weights ", np.multiply(self.feat_weights, features))
-		print("#############################")
-		print("reward ", reward)
-		print("self.discount ", self.discount)
+		# print("features x weights ", np.multiply(self.feat_weights, features))
+		# print("#############################")
+		# print("reward ", reward)
+		# print("self.discount ", self.discount)
 		#print("next_state ", next_state)
 		#print("next_state_possible_actions ", list(next_state_possible_actions))
-		print("qval ", qval)
-		print("q_val_dash ", q_val_dash)
-		print("self.feat_weights", self.feat_weights)
-		print("difference", difference)
+		# print("qval ", qval)
+		# print("q_val_dash ", q_val_dash)
+		# print("self.feat_weights", self.feat_weights)
+		# print("difference", difference)
 		#print("self.feat_weights.shape", self.feat_weights.shape)
 
 		for i in range(self.feat_weights.shape[0]):
@@ -592,7 +533,7 @@ class FeatAgent:
 			self.feat_weights[i] = wi + self.alpha * difference * features[i]
 			# print("~~~~~~~~~~~~~~~~~~~~~~~~")
 			# print("i", i)
-			print("i w_old new ", i, wi, self.feat_weights[i])
+			# print("i w_old new ", i, wi, self.feat_weights[i])
 			# print("self.feat_weights[i]", c)
 			# print("self.alpha", self.alpha)
 			# print("difference", difference)
@@ -665,8 +606,8 @@ class FeatAgent:
 		best_action = possible_actions[idx_best_q]
 
 		#chosen_action = self.get_best_action(state, possible_actions, features)
-		print("------------------")
-		print("------ QVAL ------")
+		# print("------------------")
+		# print("------ QVAL ------")
 		if epsilon > np.random.uniform(0.0, 1.0):
 			chosen_action = random.choice(possible_actions)
 			action_index = np.where(np.isclose(possible_actions,chosen_action))
@@ -701,100 +642,32 @@ class FeatAgent:
 
 
 
-
-# ------------------------------------------------------------------------------------------
-# ---------------------------------- Q-Learning Agent --------------------------------------
-# ------------------------------------------------------------------------------------------
-
-class QLearningAgent(BaseAgent):
-
-	def get_value(self, state, possible_actions):
-
-		# estimate V(s) as maximum of Q(state,action) over possible actions
-
-		value = self.qvalues[state][possible_actions[0]]
-       
-		for action in possible_actions:
-			q_val = self.qvalues[state][action]
-			if q_val > value:
-				value = q_val
-
-		return value
-
-# ------------------------------------------------------------------------------------------
-# ------------------------------ Expected Value SARSA Agent --------------------------------
-# ------------------------------------------------------------------------------------------
-    
-class EVSarsaAgent(BaseAgent):
-    
-	def get_value(self, state, possible_actions):
-		
-		# estimate V(s) as expected value of Q(state,action) over possible actions assuming epsilon-greedy policy
-		# V(s) = sum [ p(a|s) * Q(s,a) ]
-          
-		best_action = possible_actions[0]
-		max_val = self.qvalues[state][possible_actions[0]]
-		
-		for action in possible_actions:
-            
-			q_val = self.qvalues[state][action]
-			if q_val > max_val:
-				max_val = q_val
-				best_action = action
-        
-		state_value = 0.0
-		n_actions = len(possible_actions)
-		
-		for action in possible_actions:
-            
-			if action == best_action:
-				trans_prob = 1.0 - self.epsilon + self.epsilon/n_actions
-			else:
-				trans_prob = self.epsilon/n_actions
-                   
-			state_value = state_value + trans_prob * self.qvalues[state][action]
-
-		return state_value
+def randomStart(exclusions):
+	
+	# initialise each agent with random position based on exclusion principle
+	rand_x = random.randint(0,4)
+	if rand_x==0:
+		ped_x = 0
+		ped_y = random.randint(18,65)
+	if rand_x==1:
+		ped_x = 1
+		ped_y = random.randint(12,65)
+	if rand_x==2:
+		ped_x = 10
+		ped_y = random.randint(36,65)
+	if rand_x==3:
+		ped_x = 11
+		ped_y = random.randint(54,65)
+	exclusions.append((ped_x,ped_y))
+	return ped_x, ped_y, exclusions
 
 
-# ------------------------------------ environment 1 -----------------------------------------
-#gridH, gridW = 4, 4
-#start_pos = None
-#end_positions = [(0, 3), (1, 3)]
-#end_rewards = [10.0, -60.0]
-#blocked_positions = [(1, 1), (2, 1)]
-#default_reward= -0.2
-# ------------------------------------ environment 2 -----------------------------------------
-
-#gridH, gridW = 8, 4
-#start_pos = (7, 0)
-#end_positions = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0)]
-#end_rewards = [10.0, -40.0, -40.0, -40.0, -40.0, -40.0, -40.0]
-#blocked_positions = []
-#default_reward= -0.2
-
-# ------------------------------------ environment 3 -----------------------------------------
-
-#gridH, gridW = 8, 9
-#start_pos = None
-#end_positions = [(2, 2), (3, 5), (4, 5), (5, 5), (6, 5)]
-#end_rewards = [10.0, -30.0, -30.0, -30.0, -30.0]
-#blocked_positions = [(i, 1) for i in range(1, 7)]+ [(1, i) for i in range(1, 8)] + [(i, 7) for i in range(1, 7)]
-#default_reward= -0.5
-
-# ------------------------------------ environment 4 -----------------------------------------
-'''
-gridH, gridW = 9, 7
-start_pos = None
-end_positions = [(0, 3), (2, 4), (6, 2)]
-end_rewards = [20.0, -50.0, -50.0]
-blocked_positions = [(2, i) for i in range(3)] + [(6, i) for i in range(4, 7)]
-default_reward = -0.1
-'''
-# --------------------------------------------------------------------------------------------
 
 
 # --- Experiment Params -----------------------------------------
+# Number of experiements to run
+nTests = 2
+
 # Each grid unit is 1.5m square
 gridH, gridW = 12, 66
 pavement_rows = [0,1,10,11] #grid row of each pavement
@@ -802,6 +675,9 @@ pavement_rows = [0,1,10,11] #grid row of each pavement
 # Agent speed is rounded to discretised units
 vAV = 6 #6u/s ~9.1m/s ~20mph
 vPed = 1 #1u/s ~1.4m/s ~3mph
+
+# Number of agents
+nA = 2
 
 start_pos = None
 
@@ -826,6 +702,10 @@ blocked_positions = [AV_state]
 default_reward	= 0#-1
 road_rewards 	= [0 for i in range(4*gridH)] 
 
+# record agentStates and excluded start positions
+exclusions = list()
+maxT = round(gridW / vAV)
+agentState = numpy.zeros(shape=(maxT,2,nA)) #time, (x,y), no. agents
 
 # --------------------------------------------------------------------------------------------
 
@@ -849,12 +729,42 @@ agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
 env.render(agent.qvalues, running_score)
 state = env.get_state()
 counter=1
+nExp = 1 #experiment ounter for fixing random seed and logging data
 fig = plt.figure()
 
-while(True):
+# set the random seed for the experiment
+random.seed(nExp)
+print("Experiment Number", nExp)
+
+running = True
+while(nExp <= nTests):
+	
+	#inital setup of agents
+	for i in range(nA):
+		x,y,exclusions = randomStart(exclusions)
+		print(x,y,exclusions)
+
+	while(running)
+		# move agents
+		for i in range(nA):
+		x,y,exclusions = randomMove(nA,agentState)
+		print(x,y,exclusions)
+
+		# move AV
+
+
+		# check for assertions
+
+
+		# calculate score
+
+
+		# log data
+
+
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# 1) Get the agent perceptions
-	print("____MAIN_01_____")
+	# print("____MAIN_01_____")
 	features = env.percepts(AV_state) # now features can be passed to agent
 	possible_actions = env.get_possible_actions()
 	#print("possible_actions ",list(possible_actions))
@@ -862,7 +772,7 @@ while(True):
 	
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# 2) Take an action based on epsilon-ploicy
-	print("____MAIN_02_____")
+	# print("____MAIN_02_____")
 	predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
 	action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
 	# action = agent.get_action(state, possible_actions)
@@ -870,24 +780,24 @@ while(True):
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# 3) Take the chosen action and expected reward. if action not possible do nothing
-	print("____MAIN_03_____")
+	# print("____MAIN_03_____")
 	next_state, reward, done = env.step(action)
 	#print("next_state ", next_state)
 	#print("reward ", reward)
 	#print("done ", done)
 
-	print("____MAIN_03b____")
+	# print("____MAIN_03b____")
 	#update running score
 	running_score = running_score + reward
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# 4) Update the graphics - TODO make seperate board with weight/action display
-	print("____MAIN_04_____")
+	# print("____MAIN_04_____")
 	env.render(agent.qvalues, running_score)
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# Calcualte q-value based on (s,a,r,s')
-	print("____MAIN_04b____")
+	# print("____MAIN_04b____")
 	next_state_possible_actions = env.get_possible_actions() #this currently returns all theoretical actions, not just possible ones
 	# agent.update(state, action, reward, next_state, next_state_possible_actions, done)
 	agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
@@ -896,16 +806,16 @@ while(True):
 
 
 	# x axis values 
-	print("____MAIN_04c____")
-	#print("counter ", counter)
-	x = np.arange(len(agent.feat_weights))
-	if counter==1: 
-		y=agent.feat_weights
-		counter=counter+1
-	else: 
-		temp = np.transpose(agent.feat_weights)
-		y = np.vstack((y,temp))
-		counter=counter+1
+	# print("____MAIN_04c____")
+	# #print("counter ", counter)
+	# x = np.arange(len(agent.feat_weights))
+	# if counter==1: 
+	# 	y=agent.feat_weights
+	# 	counter=counter+1
+	# else: 
+	# 	temp = np.transpose(agent.feat_weights)
+	# 	y = np.vstack((y,temp))
+	# 	counter=counter+1
 
 	# if counter>2:
 	# 	tags = ('on_road', 'diff_x', 'diff_y', 'euclid', 'inv_euclid', 'inv_euclid2', 'inv_euclid3') 
@@ -920,17 +830,33 @@ while(True):
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	# 5) move the AV
-	print("____MAIN_05_____")
-
+	# print("____MAIN_05_____")
+	
 	# move the AV units based on speed
 	for i in range(0,vAV):
 		AV_x+=1
+
+		# If collision occurs end the experiment
+		if done == True:	
+			env.reset_state()
+			env.render(agent.qvalues, running_score)
+			state = env.get_state()
+			running_score = 0
+			nExp = nExp + 1
+			print("Experiment Number", nExp)
+			random.seed(nExp)
+			#logData()
+			continue
 
 		# Reset the game if the AV reaches the end
 		if AV_x>=gridW-1:
 			AV_x=0
 			env.reset_state()
 			running_score = 0
+			nExp = nExp + 1
+			print("Experiment Number", nExp)
+			random.seed(nExp)
+			#logData()
 			continue
 		# print(env.end_positions[0])
 		# print(type(env.end_positions[0]))
@@ -939,7 +865,7 @@ while(True):
 		blocked_positions = [AV_state]
 		env.end_positions[0] = AV_state
 		env.update_state()
-		time.sleep(0.1)
+		# time.sleep(0.1)
 
 	# TODOs
 	# update graphics, skipping every other step
@@ -948,9 +874,4 @@ while(True):
 	# get weights graph showing in time series
 
 
-	if done == True:	
-		env.reset_state()
-		env.render(agent.qvalues, running_score)
-		state = env.get_state()
-		running_score = 0
-		continue
+
