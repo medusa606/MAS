@@ -698,6 +698,10 @@ def randomMove(simTime, agentID, agentState):
 	return 0
 
 
+
+
+
+# ======================================================================
 # --- Experiment Params -----------------------------------------
 # Number of experiements to run
 nTests = 1
@@ -709,10 +713,7 @@ pavement_rows = [0,1,10,11] #grid row of each pavement
 # Agent speed is rounded to discretised units
 vAV = 6 #6u/s ~9.1m/s ~20mph
 vPed = 1 #1u/s ~1.4m/s ~3mph
-
-# Number of agents
-nA = 2
-
+nA = 2 # Number of agents
 start_pos = None
 
 # AV starts with nose on map???
@@ -741,16 +742,17 @@ exclusions = np.empty(shape=(nA,2)) #ID, xy
 maxT = round(gridW / vAV)
 agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 
-# --------------------------------------------------------------------------------------------
-
-#env = environment.Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward)
-env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
+# ======================================================================
 
 alpha = 0.04
 epsilon = 0.2
 discount = 0.99
 action_space = env.action_space
 state_space = env.state_space
+
+# ======================================================================
+
+
 
 running_score = 0
 simTime = 0
@@ -759,15 +761,14 @@ for agentID in range(nA):
 	randomStart(exclusions,simTime,agentID,agentState) 
 	# now render initial scene
 	# logData()
-
-
 agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
-
-#env.render(agent.qvalues, running_score)
+env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
 env.render(agent.qvalues, running_score, simTime, nA, agentState)
 time.sleep(10)
-
 state = env.get_state()
+
+
+
 counter=1
 nExp = 1 #experiment ounter for fixing random seed and logging data
 
