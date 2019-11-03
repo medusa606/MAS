@@ -335,7 +335,7 @@ class Environment(object):
 		else:
 			self.position = self.start_position
 	
-	def render(self, qvalues_matrix, running_score):
+	def render(self, qvalues_matrix, running_score, time, nA, agentState):
 		
 		frame = self.frame.copy()
 
@@ -438,18 +438,22 @@ class Environment(object):
 		
 		for i in range(self.gridW+1):
 			cv2.line(frame, (i*self.scale, 0), (i*self.scale, self.gridH * self.scale), (255, 255, 255), 2)
-					
-		# draw agent
-		
-		y, x = self.position
-		
-		y1 = int((y + 0.3)*self.scale)
-		x1 = int((x + 0.3)*self.scale)
-		y2 = int((y + 0.7)*self.scale)
-		x2 = int((x + 0.7)*self.scale)
+		#y, x = self.position
 
-		cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), -1)
-		
+		#======================================
+		# draw agent
+		#======================================
+		for agentID in range(0,nA):
+			x,y = agentState[time, agentID,:]
+			y1 = int((y + 0.3)*self.scale)
+			x1 = int((x + 0.3)*self.scale)
+			y2 = int((y + 0.7)*self.scale)
+			x2 = int((x + 0.7)*self.scale)
+			cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), -1)
+		#======================================
+
+
+
 		#print score
 		text = 'score = ' + str(int(running_score))
 		# if running_score > 0.0: text = '+' + text			
@@ -642,31 +646,61 @@ class FeatAgent:
 
 
 
-def randomStart(exclusions):
+def randomStart(exclusions, simTime, agentID, agentState):
 	
 	# initialise each agent with random position based on exclusion principle
+	x, y = 0, 0
 	rand_x = random.randint(0,4)
 	if rand_x==0:
-		ped_x = 0
-		ped_y = random.randint(18,65)
+		xy = 0
+		y = random.randint(18,65)
 	if rand_x==1:
-		ped_x = 1
-		ped_y = random.randint(12,65)
+		xy = 1
+		y = random.randint(12,65)
 	if rand_x==2:
-		ped_x = 10
-		ped_y = random.randint(36,65)
+		x = 10
+		y = random.randint(36,65)
 	if rand_x==3:
-		ped_x = 11
-		ped_y = random.randint(54,65)
-	exclusions.append((ped_x,ped_y))
-	return ped_x, ped_y, exclusions
+		x = 11
+		y = random.randint(54,65)
+	exclusions[agentID,0] = x
+	exclusions[agentID,1] = y
+	#print("exclusions",exclusions)
 
+	# state is [simTime,ID,position(x,y)]
+	agentState[simTime,agentID,0] = x
+	agentState[simTime,agentID,1] = y
+	
 
+def randomMove(simTime, agentID, agentState):
+	ran = random.randint(1,5)
+	x, y = 0, 0
+	if ran==1:
+		log = "moving UP"
+		y = y - 1
+	if ran==2:
+		log = "moving DOWN"
+		y = y + 1
+	if ran==3:
+		log = "moving LEFT"
+		x = x - 1
+	if ran==4:
+		log = "moving RIGHT"
+		x = x + 1
+	if ran==5:
+		log = "moving NONE"
+
+	# Add delta to previous state
+	agentState[simTime,agentID,0] = agentState[simTime-1,agentID,0] + x
+	agentState[simTime,agentID,1] = agentState[simTime-1,agentID,1] + y
+	#print("x y state",x, y, agentState[simTime,agentID,:] )
+	#print(log)
+	return 0
 
 
 # --- Experiment Params -----------------------------------------
 # Number of experiements to run
-nTests = 2
+nTests = 1
 
 # Each grid unit is 1.5m square
 gridH, gridW = 12, 66
@@ -703,9 +737,9 @@ default_reward	= 0#-1
 road_rewards 	= [0 for i in range(4*gridH)] 
 
 # record agentStates and excluded start positions
-exclusions = list()
+exclusions = np.empty(shape=(nA,2)) #ID, xy
 maxT = round(gridW / vAV)
-agentState = numpy.zeros(shape=(maxT,2,nA)) #time, (x,y), no. agents
+agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 
 # --------------------------------------------------------------------------------------------
 
@@ -719,159 +753,87 @@ action_space = env.action_space
 state_space = env.state_space
 
 running_score = 0
+simTime = 0
+#inital setup of agents, state is [time,ID,position(x,y)]
+for agentID in range(nA):
+	randomStart(exclusions,simTime,agentID,agentState) 
+	# now render initial scene
+	# logData()
 
-# agent = QLearningAgent(alpha, epsilon, discount, action_space, state_space)
-#agent = EVSarsaAgent(alpha, epsilon, discount, action_space, state_space)
-#agent = EVSarsaAgent(alpha, epsilon, discount, action_space, state_space)
 
 agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
 
-env.render(agent.qvalues, running_score)
+#env.render(agent.qvalues, running_score)
+env.render(agent.qvalues, running_score, simTime, nA, agentState)
+time.sleep(10)
+
 state = env.get_state()
 counter=1
 nExp = 1 #experiment ounter for fixing random seed and logging data
-fig = plt.figure()
 
 # set the random seed for the experiment
 random.seed(nExp)
 print("Experiment Number", nExp)
 
-running = True
+
 while(nExp <= nTests):
 	
-	#inital setup of agents
-	for i in range(nA):
-		x,y,exclusions = randomStart(exclusions)
-		print(x,y,exclusions)
+	
+		
 
-	while(running)
+	while(simTime<10):
+		#increment time
+		simTime = simTime + 1
+
 		# move agents
-		for i in range(nA):
-		x,y,exclusions = randomMove(nA,agentState)
-		print(x,y,exclusions)
+		for agentID in range(nA):
+			randomMove(simTime, agentID, agentState)
+			#print("simTime,agentID,agentState[simTime,agentID,:]",simTime,agentID,agentState[simTime,agentID,:])
+
+		# render the scene
+		features = env.percepts(AV_state) # now features can be passed to agent
+		possible_actions = env.get_possible_actions()
+		predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
+		action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
+		next_state, reward, done = env.step(action)
+		running_score = running_score + reward
+		env.render(agent.qvalues, running_score, simTime, nA, agentState)
+		next_state_possible_actions = env.get_possible_actions()
+		agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
+		state = next_state
+		time.sleep(1)
 
 		# move AV
+		for i in range(0,vAV):
+			AV_x+=1
+			# If collision occurs end the experiment
+			if done == True:	
+				env.reset_state()
+				env.render(agent.qvalues, running_score, simTime, nA, agentState)
+				state = env.get_state()
+				running_score = 0
+				nExp = nExp + 1
+				print("Experiment Number", nExp)
+				random.seed(nExp)
+				#logData()
+				continue
+			# Reset the game if the AV reaches the end
+			if AV_x>=gridW-1:
+				AV_x=0
+				env.reset_state()
+				running_score = 0
+				nExp = nExp + 1
+				print("Experiment Number", nExp)
+				random.seed(nExp)
+				#logData()
+				continue
+			AV_state = (AV_y,AV_x)
 
+			blocked_positions = [AV_state]
+			env.end_positions[0] = AV_state
+			env.update_state()
+			# time.sleep(0.1)
 
 		# check for assertions
-
-
 		# calculate score
-
-
 		# log data
-
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# 1) Get the agent perceptions
-	# print("____MAIN_01_____")
-	features = env.percepts(AV_state) # now features can be passed to agent
-	possible_actions = env.get_possible_actions()
-	#print("possible_actions ",list(possible_actions))
-	
-	
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# 2) Take an action based on epsilon-ploicy
-	# print("____MAIN_02_____")
-	predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
-	action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
-	# action = agent.get_action(state, possible_actions)
-	#print("action chosen ", action)
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# 3) Take the chosen action and expected reward. if action not possible do nothing
-	# print("____MAIN_03_____")
-	next_state, reward, done = env.step(action)
-	#print("next_state ", next_state)
-	#print("reward ", reward)
-	#print("done ", done)
-
-	# print("____MAIN_03b____")
-	#update running score
-	running_score = running_score + reward
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# 4) Update the graphics - TODO make seperate board with weight/action display
-	# print("____MAIN_04_____")
-	env.render(agent.qvalues, running_score)
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# Calcualte q-value based on (s,a,r,s')
-	# print("____MAIN_04b____")
-	next_state_possible_actions = env.get_possible_actions() #this currently returns all theoretical actions, not just possible ones
-	# agent.update(state, action, reward, next_state, next_state_possible_actions, done)
-	agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
-	state = next_state
-
-
-
-	# x axis values 
-	# print("____MAIN_04c____")
-	# #print("counter ", counter)
-	# x = np.arange(len(agent.feat_weights))
-	# if counter==1: 
-	# 	y=agent.feat_weights
-	# 	counter=counter+1
-	# else: 
-	# 	temp = np.transpose(agent.feat_weights)
-	# 	y = np.vstack((y,temp))
-	# 	counter=counter+1
-
-	# if counter>2:
-	# 	tags = ('on_road', 'diff_x', 'diff_y', 'euclid', 'inv_euclid', 'inv_euclid2', 'inv_euclid3') 
-	# 	plt.plot(y, label=tags)
-	# 	plt.title('Agent Feature Weights') 
-	# 	fig.canvas.draw()
-	# 	img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8,	sep='')
-	# 	img  = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-	# 	img = cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
-	# 	cv2.imshow("plot",img)
-	# #time.sleep(1)
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	# 5) move the AV
-	# print("____MAIN_05_____")
-	
-	# move the AV units based on speed
-	for i in range(0,vAV):
-		AV_x+=1
-
-		# If collision occurs end the experiment
-		if done == True:	
-			env.reset_state()
-			env.render(agent.qvalues, running_score)
-			state = env.get_state()
-			running_score = 0
-			nExp = nExp + 1
-			print("Experiment Number", nExp)
-			random.seed(nExp)
-			#logData()
-			continue
-
-		# Reset the game if the AV reaches the end
-		if AV_x>=gridW-1:
-			AV_x=0
-			env.reset_state()
-			running_score = 0
-			nExp = nExp + 1
-			print("Experiment Number", nExp)
-			random.seed(nExp)
-			#logData()
-			continue
-		# print(env.end_positions[0])
-		# print(type(env.end_positions[0]))
-		AV_state = (AV_y,AV_x)
-
-		blocked_positions = [AV_state]
-		env.end_positions[0] = AV_state
-		env.update_state()
-		# time.sleep(0.1)
-
-	# TODOs
-	# update graphics, skipping every other step
-	# present feature weights in graph
-	# on_road feature looks wrong - test
-	# get weights graph showing in time series
-
-
-
