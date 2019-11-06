@@ -1,0 +1,15 @@
+/* 
+
+-- Directives defined by the user
+   
+   . Example directive in Section 7.5
+
+*/
+
+MAS new_directive {
+
+    agents: a;
+	
+    directives: add_print = myp.AddPrint;
+}
+

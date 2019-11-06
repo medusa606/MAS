@@ -1,0 +1,15 @@
+/* 
+
+--  Contract Net Protocol
+
+	. Alternative version of CNP for exercise 6.4 - 4
+
+*/
+
+MAS cnp {
+    agents:
+        c;    // the CNP initiator
+        p #3; // three participants able to send proposals
+        pr;   // a participant that always refuses
+        pn;   // a participant that does not answer
+}

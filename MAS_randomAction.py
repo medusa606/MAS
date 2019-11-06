@@ -707,7 +707,7 @@ def randomMove(simTime, agentID, agentState):
 nTests = 1
 
 # Each grid unit is 1.5m square
-gridH, gridW = 12, 66
+gridH, gridW = 12, 33
 pavement_rows = [0,1,10,11] #grid row of each pavement
 
 # Agent speed is rounded to discretised units
@@ -739,7 +739,7 @@ road_rewards 	= [0 for i in range(4*gridH)]
 
 # record agentStates and excluded start positions
 exclusions = np.empty(shape=(nA,2)) #ID, xy
-maxT = round(gridW / vAV)
+maxT = (int)(round(gridW / vAV))
 agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 
 # ======================================================================
@@ -747,8 +747,7 @@ agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 alpha = 0.04
 epsilon = 0.2
 discount = 0.99
-action_space = env.action_space
-state_space = env.state_space
+
 
 # ======================================================================
 
@@ -761,12 +760,13 @@ for agentID in range(nA):
 	randomStart(exclusions,simTime,agentID,agentState) 
 	# now render initial scene
 	# logData()
-agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
 env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
+action_space = env.action_space
+state_space = env.state_space
+agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
 env.render(agent.qvalues, running_score, simTime, nA, agentState)
-time.sleep(10)
+time.sleep(2)
 state = env.get_state()
-
 
 
 counter=1

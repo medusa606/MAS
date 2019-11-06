@@ -1,0 +1,14 @@
+/* 
+
+-- Factorial
+
+   . Example in Section 1.4
+
+*/
+
+MAS factorial {
+
+    agents: fact;
+
+}
+

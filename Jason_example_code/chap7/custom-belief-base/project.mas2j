@@ -1,0 +1,18 @@
+/* 
+
+-- Custom Belief Base
+   
+   . Example of belief base customisation in Section 7.4
+     agent a uses a text based BB
+	 agent c uses a user defined BB
+
+*/
+
+MAS custom_BB {
+
+    agents:
+        a beliefBaseClass jason.bb.TextPersistentBB;
+		c beliefBaseClass TimeBB;
+
+}
+

@@ -1,0 +1,15 @@
+/* 
+
+-- Hello World
+
+   . Example in Section 1.4
+
+*/
+
+MAS hello_world {
+
+    agents:
+        hello;
+
+}
+

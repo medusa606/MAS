@@ -1,0 +1,15 @@
+/* 
+
+-- Custom Agent class 
+   
+   . Example of agent class customisation in Section 7.2
+
+*/
+
+MAS free_intention {
+
+    agents:
+        a agentClass IdleAgent;
+
+}
+

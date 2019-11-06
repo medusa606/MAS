@@ -1,0 +1,18 @@
+/* 
+
+--  Contract Net Protocol
+
+    . Example of communication in Section 6.3 
+	. Exercise 6.4 - 1
+	. Exercise 6.4 - 2
+	. Exercise 6.4 - 3
+
+*/
+
+MAS cnp {
+    agents:
+        c;    // the CNP initiator
+        p #3; // three participants able to send proposals
+        pr;   // a participant that always refuses
+        pn;   // a participant that does not answer
+}

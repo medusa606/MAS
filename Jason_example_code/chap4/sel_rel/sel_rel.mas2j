@@ -1,0 +1,11 @@
+/* Jason Project */
+
+MAS sel_rel {
+
+    infrastructure: Centralised
+
+    agents:
+        a;
+
+}
+

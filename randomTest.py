@@ -8,17 +8,19 @@ completeName = os.path.join(save_path, "random_log.txt")
 repeats = 3
 mUP, mDW, mLT, mRT, mNO = 0,0,0,0,0
 
-f = open(completeName, "w")
+# f = open(completeName, "w")
+f = open("random_log.txt", "w")
+
 
 for nExp in range(1,repeats):
 	random.seed(nExp)
-	# print("1", random.randint(1,5))
-	# random.seed(nExp)
-	# print("2", random.randint(1,5))
-	# random.seed(nExp)
-	# print("3", random.randint(1,5))
-	# random.seed(nExp)
-	# print("4", random.randint(1,5))
+	print("1", random.randint(1,5))
+	random.seed(nExp)
+	print("2", random.randint(1,5))
+	random.seed(nExp)
+	print("3", random.randint(1,5))
+	random.seed(nExp)
+	print("4", random.randint(1,5))
 	ran = random.randint(1,5)
 	f.write("%d, %d \n" % (nExp, ran))
 

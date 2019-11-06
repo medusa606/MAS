@@ -1,0 +1,11 @@
+/* Jason Project */
+
+MAS failure_exercise {
+
+    infrastructure: Centralised
+
+    agents:
+        a;
+
+}
+

@@ -1,0 +1,15 @@
+/* 
+
+--  Internal Action
+
+    . Example of internal action for odd number in Section 7.1
+	  (see agent code and math/odd.java for more details)
+
+*/
+
+MAS odds {
+
+    agents: a;
+
+}
+

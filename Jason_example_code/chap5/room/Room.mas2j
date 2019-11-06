@@ -1,0 +1,16 @@
+/* 
+
+-- Room 
+
+   . Exercise 5.3 - 3
+   
+   (note that we increased the number of paranoids to 5 
+   to better illustrate the problem)
+   
+*/
+
+MAS room {
+	environment: RoomEnv
+	agents: claustrophobe; paranoid #5;
+}
+

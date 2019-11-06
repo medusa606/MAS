@@ -1,0 +1,25 @@
+/*
+    vacuum
+    ---------------------------
+
+    Jason Project File
+
+    This file defines the initial state of the MAS
+
+    Jason 
+    May 22, 2019 - 12:04:47
+*/
+
+MAS vacuum {
+
+    infrastructure: Centralised
+
+    environment: VCWorld
+
+    agents:
+        robot;
+
+        aV;
+
+}
+

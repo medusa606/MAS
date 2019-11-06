@@ -1,0 +1,26 @@
+MAS electronic_bookstore {
+   infrastructure: 
+      Saci
+	  
+   agents:
+      login           beliefBaseClass jason.bb.TextPersistentBB;
+	  
+      deliveryManager beliefBaseClass jason.bb.TextPersistentBB;
+	  
+      stockManager    
+          [verbose=0] 
+          beliefBaseClass jason.bb.JDBCPersistentBB(
+            "org.hsqldb.jdbcDriver", // driver for HSQLDB
+            "jdbc:hsqldb:bookstore", // URL connection
+            "sa", // user
+            "",   // password
+            "[book(7),book_author(2),author(2),publisher(2),topic(2),book_topic(2),book_stock(2)]");
+            // predicate book (with arity 7) is mapped to a table called "book"
+            // and so on...
+
+      guest salesAssistant;
+	  
+      test;
+
+}
+

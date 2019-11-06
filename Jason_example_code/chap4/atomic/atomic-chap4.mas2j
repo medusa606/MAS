@@ -1,0 +1,15 @@
+/* 
+
+    . Exercise 4.5 4) about atomic annotation 
+
+*/
+
+MAS atomic {
+
+    infrastructure: Centralised
+
+    agents:
+        rec;
+        sender;
+}
+

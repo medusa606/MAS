@@ -1,0 +1,14 @@
+/* 
+
+--  Failure
+
+    . Example of plan failure in Section 4.2 
+
+	Run it in debug mode to see the intentions state.
+	
+*/
+
+MAS demo_failure {
+	agents: a;
+}
+

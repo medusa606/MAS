@@ -1,0 +1,17 @@
+/* 
+
+-- Vacuum Cleaning 
+   
+   . Example of Environment in the end of Section 5.1
+   . Example of agent class customisation in Section 7.2
+   . Example of agent architecture customisation in Section 7.3
+   . Exercise 5.3 - 1
+
+*/
+
+MAS vacuum_cleaning {
+	environment: VCWorld
+	agents: vc agentClass DirtyFocusAgent
+               agentArchClass VCArch;
+}
+
