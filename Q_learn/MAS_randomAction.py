@@ -682,59 +682,27 @@ class FeatAgent:
 
 
 
-def randomStart(exclusions, simTime, nA, agentState, rsLog, pLog, nExp):
+def randomStart(startLocations, simTime, nA, agentState, rsLog, pLog, nExp):
 	#print("### randomStart ###")
 	# initialise each agent with random position based on "deadzone"
 	log_string = ""
+	start_array = startLocations[nExp,:]
+	# print("nExp start_array",nExp,start_array)
+
 	for agentID in range(0,nA):
-		x, y = 0, 0
-		rand = random.randint(0,3)
-		#print("### randomStart ### rand", rand)
-		# print("rand",rand)
-		if rand==0:
-			x = 0
-			y = random.randint(18,65)
-		if rand==1:
-			x = 1
-			y = random.randint(12,65)
-		if rand==2:
-			x = 10
-			y = random.randint(36,65)
-		if rand==3:
-			x = 11
-			y = random.randint(54,65)
-		
-		# # add the start location to an exclusion list
-		# exclusions[agentID,0] = x
-		# exclusions[agentID,1] = y
-		# # print("exclusions",exclusions[agentID,:])
 
-
-		# # ensure unique starting locations
-		# if agentID>0:
-		# 	#print("testing unique starting positions...")
-		# 	ex_x = agentState[simTime,0:agentID,0]
-		# 	ex_y = agentState[simTime,0:agentID,1]
-		# 	check_x = np.isin(ex_x,x)
-		# 	check_y = np.isin(ex_y,y)
-		# 	check = (check_x & check_y)
-		# 	print("check_x,y",check_x,check_y)
-		# 	print("check",check.all())
-		# 	#if repetition  is found, regenerate values
-		# 	if (check.all()):
-		# 		print("### Resetting Agents ###")
-		# 		randomStart(exclusions, simTime, nA, agentState, rLog)
-
-		
-		# state is [simTime,ID,position(x,y)]
+		# read start location from master table
+		x = start_array[(0+2*agentID)]
+		y = start_array[(1+2*agentID)]
+		# add locations to agent state array
 		agentState[simTime,agentID,0] = x
 		agentState[simTime,agentID,1] = y
 		log_string = log_string + ", %4i, %4i" % (x,y)
-		#print(log_string)
-		
+		#print(log_string)		
 		#print("initial state for agent", agentID," is ",agentState[simTime,agentID,:])
+	rsindex = "%4i" % (nExp)
 	index = "%4i, %4i, %4i" % (0, nExp, simTime)
-	rsLog.write(index + log_string + "\n")
+	rsLog.write(rsindex + log_string + "\n")
 	pLog.write(index + log_string + "\n")
 
 
@@ -758,7 +726,7 @@ def moveGen(simTime, agentID, rLog):
 		x = x + 1
 	if ran==5:
 		log = "moving NONE"
-	rLog.write("%d \n" % ran) #store the randome numbers to check consistency	
+	rLog.write("%7i, %4i \n" % (simTime, ran)) #store the randome numbers to check consistency	
 	return x,y #WARNING X and Y are used the wrong way around
 
 
@@ -809,25 +777,24 @@ def randomMove(simTime, nA, agentState, pLog, rLog, nExp, AV_x):
 	pLog.write(index + log_string + "\n")
 
 
-#Check reward and end positions (overrules env.step)
+#Check penalties and living costs
 def checkReward(nA, simTime, agentState, agentScores, nExp, roadPenaltyMaxtrix):
 	for agentID in range (0,nA):
 		reward = 0
-		# Check agent location against reward matrix
+		# Check agent location against penalty matrix
 		Ag_x = int(agentState[simTime,agentID,0])
 		Ag_y = int(agentState[simTime,agentID,1])
 		#print("###REWARD### Ag_x, Ag_y ", Ag_x, Ag_y)
 		#next_state = env.state2idx[(Ag_x,Ag_y)]
 		#reward = env.idx2reward[next_state]
 		#print("###REWARD### Agent ID reward ", agentID, reward)
-
 		# Update agent score profile
 		reward = roadPenaltyMaxtrix[Ag_y, Ag_x]
 		curr_score = agentScores[nExp,agentID]
 		agentScores[nExp,agentID] = curr_score + reward		
 
 		if reward==vt: break #no double accounting, only first agent counts!
-	print("###REWARD### ID curr_score, reward ",agentID, curr_score, reward)
+	# print("###REWARD### ID curr_score, reward ",agentID, curr_score, reward)
 	return reward
 
 def checkValidTest(nA, simTime, agentState):
@@ -846,26 +813,96 @@ def moveAV(gridW,gridH,AV_x):
 	AVpositionMaxtrix[AV_x,[2,3,4,5]]=1
 	return AVpositionMaxtrix
 
+def MASrender(simTime, nA, agentState):
+		
+	frame = env.frame.copy()
+		
+	# draw horizontal lines		
+	for i in range(env.gridH+1):
+		cv2.line(frame, (0, i*env.scale), (env.gridW * env.scale, i*env.scale), (255, 255, 255), 1)
+	
+	# draw vertical lines		
+	for i in range(env.gridW+1):
+		cv2.line(frame, (i*env.scale, 0), (i*env.scale, env.gridH * env.scale), (255, 255, 255), 1)
+	
+	#======================================
+	# draw agent
+	#======================================
+	#print("simTime, nA",simTime, nA)
+	for agentID in range(0,nA):
+		y,x = agentState[simTime, agentID,:]
+		y1 = int((y + 0.3)*env.scale)
+		x1 = int((x + 0.3)*env.scale)
+		y2 = int((y + 0.7)*env.scale)
+		x2 = int((x + 0.7)*env.scale)
+		cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), -1)
+		#print('### RENDER2 ### xy',x,y,x1,x2,y1,y2)	
+		#print("### RENDER ### simTime, agentID, x,y,x1,x2,y1,y2",simTime, agentID,x,y,x1,x2,y1,y2)
+		#time.sleep(1)
+		
+	#======================================
+	cv2.imshow('frame', frame)
+	cv2.moveWindow('frame', 0, 0)
+	key = cv2.waitKey(10)
+	if key == 27: sys.exit()
+
+	cv2.imshow('frame', frame)
+	cv2.moveWindow('frame', 0, 0)
+	key = cv2.waitKey(1)
+	if key == 27: sys.exit()
+
+def initLocation(nA, nTests):
+	startLocations = np.zeros(shape=(nTests,nA*2))
+	# print("startLocations",startLocations)
+	for experimentID in range(0,nTests):
+		tempArray = []
+		for agentID in range(0,nA):
+			x, y = 0, 0
+			rand = random.randint(0,3)
+			if rand==0:
+				x = 0
+				y = random.randint(18,65)
+			if rand==1:
+				x = 1
+				y = random.randint(12,65)
+			if rand==2:
+				x = 10
+				y = random.randint(36,65)
+			if rand==3:
+				x = 11
+				y = random.randint(54,65)
+			tempArray.extend([x,y])			
+			# print("tempArray",tempArray)
+		startLocations[experimentID,:] = np.asarray(tempArray)
+		#print("tempArray",tempArray)
+	return startLocations
+
 
 # ======================================================================
 # --- User Experiment Params -----------------------------------------
 
-nTests = 2					# Number of experiements to run
+nTests = 10					# Number of experiements to run
 gridH, gridW = 12, 66#66		# Each grid unit is 1.5m square
 pavement_rows = [0,1,10,11] #grid row of each pavement
 vAV = 6 					# 6u/s ~9.1m/s ~20mph
 vPed = 1 					# 1u/s ~1.4m/s ~3mph
-nA = 5 						# Number of agents
-delay = .02 					# delay between each frame, slows sim down
-vt = 20						# points for a valid test
+nA = 10 						# Number of agents
+delay = 0.2 					# delay between each frame, slows sim down
+vt = 100						# points for a valid test
 AV_x = 0					# AV start position along road
 default_reward	= -1 		# Living cost
-road_pen = -1				# Penalty for being in road
+road_pen = -5				# Penalty for being in road
+
+display_grid = False			# Show the grid
 
 
 # ======================================================================
 # --- Non-User Experiment Params -------------------------------------
 
+if not(display_grid):
+	delay = 0
+	# diag=0
+validTests = 0.
 roadPenaltyMaxtrix = np.zeros(shape=(gridW,gridH))
 roadPenaltyMaxtrix[:,:] = road_pen
 roadPenaltyMaxtrix[:,pavement_rows] = default_reward
@@ -895,52 +932,60 @@ agentScores = np.zeros(shape=(nTests,nA,)) #state is [time,ID,position(x,y)]
 
 
 # ======================================================================
-# --- Agent Experiment Params ----------------------------------------
+# --- MDP Agent Experiment Params --------------------------------------
 
 alpha = 0.04
 epsilon = 0.2
 discount = 0.99
 
 # ======================================================================
-# --- Logs -----------------------------------------------------------
+# --- Logs -------------------------------------------------------------
 ts = datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S")
 
-rsLog = open("initial_random_log_%s.txt" % ts, "w")	#random initial location log
-rsLog.write("nExp, Time"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
+rsLog = open("logs/initial_random_log_%s.txt" % ts, "w")	#random initial location log
+rsLog.write("nExp"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
 
-rLog = open("random_log_%s.txt" % ts, "w")	#random movement log
+rLog = open("logs/random_log_%s.txt" % ts, "w")				#random movement log
 rLog.write("simTime, rand \n")
 
-sLog = open("score_log_%s.txt" % ts, "w")	#score for each experiment per agent
-sLog.write("nExp, agentScores \n")
+sLog = open("logs/score_log_%s.txt" % ts, "w")				#score for each experiment per agent
+sLog.write("nExp, valid"+ "".join(',  A%d' % i for i in range(0,nA)) +"\n")
 
-pLog = open("position_log_%s.txt" % ts, "w")
+pLog = open("logs/position_log_%s.txt" % ts, "w")
 pLog.write("nExp, Time,  AVy"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
 #pLog.close()
 #print(header)
 
 
 # ======================================================================
+# --- Initialisation ---------------------------------------------------
 
 running_score = 0
 simTime = 0
-#inital setup of agents, state is [time,ID,position(x,y)]
+nExp = 0 #experiment counter
+random.seed(nExp) #set the random seed based on the experiment number
 
+# Generate a list of start points for the agents so they are the same across behaviours
+startLocations = initLocation(nA, nTests)
+print("Generating startLocations",startLocations)
 
-nExp = 0 #experiment ounter for fixing random seed and logging data
-random.seed(nExp)
-randomStart(exclusions,simTime,nA,agentState,rsLog,pLog,nExp) 
-# rsLog(simTime,nA,agentState)
+# Use the position list to set agent states 
+randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
 
-#print("initial agent positions are ",agentState[simTime,:,:])
-
+# Initialist the environment class and make an initial render of the board
 env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
-action_space = env.action_space
-state_space = env.state_space
-agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
-env.render(agent.qvalues, running_score, simTime, nA, agentState)
+
+# Comment out other uses of Random
+# action_space = env.action_space
+# state_space = env.state_space
+# agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
+
+# Display the grid lines, q-values, agent positions
+if display_grid:
+	MASrender(simTime, nA, agentState)
+	#env.render(agent.qvalues, running_score, simTime, nA, agentState)
 time.sleep(delay)
-state = env.get_state()
+# state = env.get_state()
 
 
 
@@ -950,7 +995,7 @@ state = env.get_state()
 done = False
 
 # while(nExp <= nTests):
-while(not(done)) and (nExp <= nTests):
+while(not(done)) and (nExp <= nTests-1):
 
 	#check if series complete
 	if(nExp>nTests):
@@ -965,11 +1010,11 @@ while(not(done)) and (nExp <= nTests):
 	randomMove(simTime, nA, agentState, pLog, rLog, nExp, AV_x)
 
 	# render the scene
-	features = env.percepts(AV_state) # now features can be passed to agent
-	possible_actions = env.get_possible_actions()
-	predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
-	action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
-	next_state, reward, done = env.step(action)
+	# features = env.percepts(AV_state) # now features can be passed to agent
+	# possible_actions = env.get_possible_actions()
+	# predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
+	# action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
+	# next_state, reward, done = env.step(action)
 
 	
 	reward = checkReward(nA, simTime, agentState, agentScores, nExp, roadPenaltyMaxtrix) #Check reward and end positions (overrules env.step)
@@ -979,73 +1024,89 @@ while(not(done)) and (nExp <= nTests):
 
 
 	running_score = running_score + reward
-	env.render(agent.qvalues, running_score, simTime, nA, agentState)
-	next_state_possible_actions = env.get_possible_actions()
-	agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
-	state = next_state
+	if display_grid:
+		# env.render(agent.qvalues, running_score, simTime, nA, agentState)
+		MASrender(simTime, nA, agentState)
+	# next_state_possible_actions = env.get_possible_actions()
+	# agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
+	# state = next_state
 	time.sleep(delay)
+
+	
 
 # move AV
 	for i in range(0,vAV):
 
+		# print("time + AVindex", simTime, i)
+
 		# Move AV and update end positions and reward locations
 		AV_x+=1
 		AVpositionMaxtrix = moveAV(gridW,gridH,AV_x)
-		AVlist = (np.transpose(np.nonzero(AVpositionMaxtrix)))
-		#print("AVlist",AVlist)
+		AVlist = (np.transpose(np.nonzero(AVpositionMaxtrix))) # this is in order (y,x) (horizontal,vertical)
+		# AVlist = (np.nonzero(AVpositionMaxtrix))
+		# print("AVlist")
+		# print(AVlist)
+
+
+		#use broadcasting to check if an agent coordinate pair exists in the AV spaces
+		yx_agentList = np.transpose(np.array([agentState[simTime,:,1],agentState[simTime,:,0]])).astype(int)
+		# print("yx_agentList")
+		# print(yx_agentList)
+		validTest = (yx_agentList[:,None] == AVlist).all(2).any(1).any()
+		# print(validTest)
+
+		indexIDbool = ((yx_agentList[:,None] == AVlist).all(2)).any(1)
+		indexID = [i for i, x in enumerate(indexIDbool) if x]
+		# print("indexID",indexID)
 		
-		#see if AV has intersected an agent
-		for agentID in range(0,nA):
-			av_x = AVlist[:,1]
-			av_y = AVlist[:,0]
-			Ag_x = int(agentState[simTime,agentID,0])
-			Ag_y = int(agentState[simTime,agentID,1])	
-			check_x = np.isin(av_x,Ag_x)
-			check_y = np.isin(av_y,Ag_y)
-			check = (check_x & check_y)
-
-			# print("check_x,y",check_x,check_y)
-			# print("av_x Ag_x",agentID,av_x, Ag_x)
-			# print("check_x ID",agentID, check_x)
-			# print("av_y Ag_y",agentID,av_y, Ag_y)
-			# print("check_y ID", check_y)
-
-			print("check",check.all())
-			print("av_x ,av_y",av_x ,av_y)
-			print("Ag_x,Ag_y",Ag_x,Ag_y)
-			print("check_x",check_x)
-			print("check_y",check_y)
-
-			#print("check",check.all())
-			if(check.all()):
-				print("Agent ",agentID, " has generated a valid test")
-				# Add reward
-				curr_score = agentScores[nExp,agentID]
-				agentScores[nExp,agentID] = curr_score + reward	
-				# reset level
+		# 	#print("check",check.all())
+		if(validTest):
+			# print("Agent ",indexID, " has generated a valid test")
+			# Add reward
+			curr_score = agentScores[nExp,indexID]
+			agentScores[nExp,indexID] = curr_score + vt	
+			validTests = validTests + 1
+			done = True 		# reset level
 
 
 		#blocked_positions = [(2,AV_x),(3,AV_x),(4,AV_x),(5,AV_x)] # Assume AV is width of road as simple approximation
 		env.end_positions = [(2,AV_x),(3,AV_x),(4,AV_x),(5,AV_x)]
-		env.update_state() #renders road and end positions/rewards
+		if display_grid:
+			env.update_state() #renders road and end positions/rewards
 
 		# print("AV_x, gridW = ",AV_x, gridW)
 		# env.render(agent.qvalues, running_score, simTime, nA, agentState)
-		done = checkValidTest(nA, simTime, agentState)
+		# done = checkValidTest(nA, simTime, agentState)
 		
 		#print("Agent X: ", agentState[simTime,:,0])
 		#print("Agent Y: ", agentState[simTime,:,1])
 		#print("blocked_positions are: ", blocked_positions)
-		#print("Agent scores are: ", agentScores)
+		# print("Agent scores are: ", agentScores)
 
 		# If collision occurs end the experiment
 		if done == True:
+			print("~~~~~~~~~~~~~~~~~~~~~")
 			print("Valid test generated!")
+			print("~~~~~~~~~~~~~~~~~~~~~")
+
+
+			#log the scores for this run
+			scoresRound = agentScores[nExp,:]
+			log_string = "".join(', %3i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
+			rsindex = "%4i,%6i" % (nExp,1)
+			sLog.write(rsindex + log_string + "\n")
+			# print(rsindex + log_string)
+
+
 			env.reset_state()
-			env.render(agent.qvalues, running_score, simTime, nA, agentState)
+			if display_grid:
+				MASrender(simTime, nA, agentState)
+				# env.render(agent.qvalues, running_score, simTime, nA, agentState)
 			state = env.get_state()
 			running_score = 0
 			nExp = nExp + 1
+			if (nExp>nTests-1):
+				break
 			#print("Experiment Number", nExp)
 			random.seed(nExp)
 			# Reset all agents
@@ -1054,17 +1115,37 @@ while(not(done)) and (nExp <= nTests):
 			maxT = (int)(round(gridW / vAV)+1)
 			agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 			simTime = 0
-			randomStart(exclusions,simTime,nA,agentState,rsLog,nExp) 
+			randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
+
 			done = False 
 			#logData()
+			
+			#print(log_string)
+
+			#print("initial state for agent", agentID," is ",agentState[simTime,agentID,:])
+			
+
+
 			continue
 		# Reset the game if the AV reaches the end
 		if AV_x>=gridW-1:
 			print("AV exit, resetting...")
 			AV_x=0
+			
+
+			#log the scores for this run
+			scoresRound = agentScores[nExp,:]
+			log_string = "".join(', %3i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
+			rsindex = "%4i,%6i" % (nExp,0)
+			sLog.write(rsindex + log_string + "\n")
+			# print(rsindex + log_string)
+
+
 			env.reset_state()
 			running_score = 0
 			nExp = nExp + 1
+			if (nExp>nTests-1):
+				break
 			#print("Experiment Number", nExp)
 			random.seed(nExp)
 			#logData()
@@ -1073,16 +1154,61 @@ while(not(done)) and (nExp <= nTests):
 			maxT = (int)(round(gridW / vAV)+1)
 			agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
 			simTime = 0
-			randomStart(exclusions,simTime,nA,agentState,rsLog,nExp)  
+			randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
+ 
 			done = False
 			continue
 		AV_state = (AV_y,AV_x)
+		if display_grid:
+			MASrender(simTime, nA, agentState)
+			# env.render(agent.qvalues, running_score, simTime, nA, agentState)
+
+		# if you want to manually step through each tick
+		# raw_input("Press Enter to continue...")
 
 
+# close log files
 print("Test complete, writing log files...")
 rLog.close()
-# check for assertions
-# calculate score
-# log data
+sLog.close()
 rsLog.close()
+pLog.close()
 
+
+#calc stats
+import scipy.stats as st
+accuracy_ratio = 100*(validTests/nTests)
+report_string = "n=%d nA=%d Accuracy=%0.2f" % (nTests, nA, accuracy_ratio)
+agScore_AVG = np.average(agentScores)
+agScore_MAX = np.max(agentScores)
+agScore_MIN = np.min(agentScores)
+agScore_95ci = st.t.interval(0.95, len(agentScores)-1, loc=np.mean(agentScores), scale=st.sem(agentScores))
+ci95= (zip(*agScore_95ci))
+type(agScore_95ci)
+
+
+# generate report
+print("Generating summary report...")
+summary = open("logs/summary_report_%s.txt" % ts, "w")				
+summary.write("======================================= \n")
+summary.write("=========== Summary of Test =========== \n\n")
+summary.write("Number of tests: %d \n" 				% nTests)
+summary.write("Number of agents: %d \n" 			% nA)
+summary.write("Valid tests generated: %d \n" 		% validTests)
+summary.write("Test generation accuracy: %.1f%% \n"	% accuracy_ratio)
+summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
+summary.write("Living cost: %d \n" 					% default_reward)
+summary.write("Road penalty: %d \n" 				% road_pen)
+summary.write("Average agent score: %d \n" 			% agScore_AVG)
+summary.write("Max agent score: %d \n" 				% agScore_MAX)
+summary.write("Min agent score: %d \n" 				% agScore_MIN)
+summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
+summary.write("Agent speed: %d units/s\n" 			% vPed)
+summary.write("AV Speed: %d units/s\n" 				% vAV)
+summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
+summary.write("95%% confidence interval per agent: \n")
+summary.write("".join('%s %s \n' % x for x in ci95))
+summary.write("======================================= \n")
+summary.close()
+
+print("Test complete")
