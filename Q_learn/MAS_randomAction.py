@@ -845,8 +845,8 @@ def randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=True):
 
 
 		# Move the agent based on the walk and crossing direction
-		dx=0
-		dy	=0
+		dx = 0
+		dy = 0
 		if crossing_road == -1:
 			dx = -1
 			dy = 0
@@ -915,8 +915,11 @@ def randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=True):
 	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
 	pLog.write(index + log_string + "\n")
 
+
+
+
 # Agent walks along pavement and randomly choose to cross the road
-def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=True):
+def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=False):
 	
 	from scipy.spatial import distance #for cityblock distance
 	
@@ -937,34 +940,24 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 			if ran<6:
 				walk_direction = -1
 				#if diag:print("Agent is East side")
-			elif ran>6:
+			elif ran>5:
 				walk_direction = 1
 				#if diag:print("Agent is West side")
-			
+			else:
+				walk_direction = 1
+			#check if at edge/corner
+			if old_ay==0:
+				walk_direction = 1
+			if old_ay==gridW-1:
+				walk_direction = -1
 
 		#find walk direction if sim started
 		if simTime>1:
-			old2_ax = agentState[simTime-2,agentID,0]
-			old2_ay = agentState[simTime-2,agentID,1]
-			old_ax = agentState[simTime-1,agentID,0]
-			old_ay = agentState[simTime-1,agentID,1]
-			#if diag:print("Agent old XY=%d %d new XY=%d,%d" % (old_ax, old_ay, ax, ay))
-			if old2_ay>old_ay: #walking direction
-				walk_direction = -1 #walking 'left'
-				if diag:print("Left walking detected")
-			if old2_ay<old_ay:
-				walk_direction = 1  #walking 'right'
-				if diag:print("Right walking detected")
-			if old2_ay==old_ay:
-				#find if agent is crossing road
-				if old2_ax>old_ax:
-					crossing_road=-1 #moving 'up'
-					if diag:print("Agent is mid-crossing going up")
-				elif old2_ax<old_ax:
-					crossing_road=1  #moving 'down'				
-					if diag:print("Agent is mid-crossing going down")
-				else:
-					print("##RB## WARNING: Unrecognised agent behaviour")
+			crossing_road, walk_direction = detectAction(crossing_road, walk_direction,simTime,agentID)
+			# if walk_direction==0 and crossing_road==0:
+			# 	print("post detect-action check")
+			# 	print("old_xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, nExp, simTime,walk_direction,crossing_road))
+			
 			
 			#If AV is within radius then cross the road
 			# AV coordiantes are: [2,3,4,5], AV_y
@@ -976,16 +969,18 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 				#print(AG_coord, type(AG_coord))
 				temp = distance.cityblock(AV_coord, AG_coord)
 				pt[AV_x-2] = temp
-				print("AV=%s AG=%s PT=%d" % (AV_coord, AG_coord, temp))	
+				#print("AV=%s AG=%s PT=%d" % (AV_coord, AG_coord, temp))	
 			prox_MIN = np.min(pt)
-			print("proximity_test output is %d %d %d %d" % (pt[0],pt[1],pt[2],pt[3]))
+			# print("proximity_test output is %d %d %d %d" % (pt[0],pt[1],pt[2],pt[3]))
+			# print("minimum prox=%d" % prox_MIN)
+			# print("trigger_radius =%d" % trigger_radius)
 			
 			# if you want to manually step through each tick
-			raw_input("Press Enter to continue...")
+			# raw_input("Press Enter to continue...")
 
 
 			if prox_MIN<trigger_radius:
-				print("proximity triggered for agent %d at %d m" % (agentID, 1.5*prox_MIN))
+				if(diag): print("proximity triggered for agent %d at %d m" % (agentID, 1.5*prox_MIN))
 
 				if old_ax>9:
 					crossing_road = -1 #if on lower pavement, move up
@@ -995,40 +990,14 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 					if diag:print("Agent has decided to cross DOWN")
 
 
-		# Move the agent based on the walk and crossing direction
-		dx=0
-		dy	=0
-		if crossing_road == -1:
-			dx = -1
-			dy = 0
-		if crossing_road ==  1:
-			dx =  1
-			dy = 0
-		if crossing_road ==  0:
-			if walk_direction == -1:
-				dy =  -1
-				dx = 0
-			elif walk_direction == 1:
-				dy = 1
-				dx = 0
-			else:
-				print("##RB## WARNING: No valid move found")
-		if diag:print("Agent dx=%2i dy=%2i" % (dx, dy))
+		# calculate new xy positions
+		if walk_direction==0 and crossing_road==0:
+			print("##Proximity## WARNING: walk_direction overwritten")
+			print("old_xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, nExp, simTime,walk_direction,crossing_road))
+			raw_input("Press Enter to continue...")
 
-		# Determine new position
-		new_x = int(old_ax + dx)
-		new_y = int(old_ay + dy)
-
-
-		# Reverse direction if agent hits edge
-		if (new_y == 0) or (new_y > gridW-1):
-			dy = dy * -1
-			if diag:print("Agent at y-limit reversing")
-			new_y = int(old_ay + dy)
-		if (new_x == 0) or (new_x > gridH-1):
-			dx = dx * -1
-			new_x = int(old_ax + dx)
-			if diag:print("Agent at x-limit reversing")
+		new_x, new_y = moveXR(old_ax, old_ay, crossing_road, walk_direction, diag)
+		new_x, new_y = checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y, diag)
 
 				
 		if diag: print("old_xy=%2i,%2i xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, new_x, new_y, nExp, simTime,walk_direction,crossing_road))
@@ -1042,16 +1011,28 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
 	pLog.write(index + log_string + "\n")	
 
+
+
+
+
+
+
+
+
 # Agent walks along pavement and randomly choose to cross the road
-def Election(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=True):
-	
+def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=True):
 	from scipy.spatial import distance #for cityblock distance
-	electionArray = np.zeros(shape=(nA,4))
-	
+
+	electionArray = np.zeros(shape=(nA,4)) #store election results
+	# XR_WD_status = np.zeros(shape=(nA,2))
+	agentElected = False
+
 	for agentID in range(0,nA):
 		walk_direction = 0
 		crossing_road = 0
 		log_string = ""
+		dx = 0
+		dy = 0
 		
 		ran = random.randint(1,10) #roll 10-sided dice
 		rLog.write("%7i, %4i \n" % (simTime, ran))  #log random number
@@ -1061,41 +1042,42 @@ def Election(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10,
 
 		#if first step then set agents down pavement
 		if int(simTime)==1:
-			# if old_ay>int(round(gridH/2)): #walking direction
+			#reset the election parameters
+			allAgentsXR = 0
+			agentElected = False
+			XR_WD_status[agentID,0] = 0
+			XR_WD_status[agentID,1] = 0
+
+			# randomly set walking direction
 			if ran<6:
 				walk_direction = -1
-				#if diag:print("Agent is East side")
-			elif ran>6:
+			elif ran>5:
 				walk_direction = 1
-				#if diag:print("Agent is West side")
-			
+			else:
+				walk_direction = 1
+			#check if at edge/corner
+			if old_ay==0:
+				walk_direction = 1
+			if old_ay==gridW-1:
+				walk_direction = -1
+			# execute move orders
+			new_x, new_y = moveXR(old_ax, old_ay, crossing_road, walk_direction)
+			new_x, new_y = checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y)
+			# Add delta to previous state
+			agentState[simTime,agentID,0] = new_x
+			agentState[simTime,agentID,1] = new_y
+			XR_WD_status[agentID,1] = walk_direction
+			log_string = log_string + ", %4i, %4i" % (new_x,new_y)	
+
+
 
 		#find walk direction if sim started
 		if simTime>1:
-			old2_ax = agentState[simTime-2,agentID,0]
-			old2_ay = agentState[simTime-2,agentID,1]
-			old_ax = agentState[simTime-1,agentID,0]
-			old_ay = agentState[simTime-1,agentID,1]
-			#if diag:print("Agent old XY=%d %d new XY=%d,%d" % (old_ax, old_ay, ax, ay))
-			if old2_ay>old_ay: #walking direction
-				walk_direction = -1 #walking 'left'
-				if diag:print("Left walking detected")
-			if old2_ay<old_ay:
-				walk_direction = 1  #walking 'right'
-				if diag:print("Right walking detected")
-			if old2_ay==old_ay:
-				#find if agent is crossing road
-				if old2_ax>old_ax:
-					crossing_road=-1 #moving 'up'
-					if diag:print("Agent is mid-crossing going up")
-				elif old2_ax<old_ax:
-					crossing_road=1  #moving 'down'				
-					if diag:print("Agent is mid-crossing going down")
-				else:
-					print("##RB## WARNING: Unrecognised agent behaviour")
+			crossing_road, walk_direction = detectAction(crossing_road, walk_direction,simTime,agentID)
+			# XR_WD_status[agentID,0] = crossing_road #don't want to update this as is election specific
+			XR_WD_status[agentID,1] = walk_direction
 			
-			#If AV is within radius then cross the road
-			# AV coordiantes are: [2,3,4,5], AV_y
+			#Cityblock distance to AV
 			pt = np.zeros(shape=(4,1))
 			for AV_x in range (2, 6):
 				AV_coord = np.array([AV_x,AV_y])
@@ -1104,39 +1086,155 @@ def Election(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10,
 				#print(AG_coord, type(AG_coord))
 				temp = distance.cityblock(AV_coord, AG_coord)
 				pt[AV_x-2] = temp
-				# print("AV=%s AG=%s PT=%d" % (AV_coord, AG_coord, temp))	
-			prox_MIN = np.min(pt)
-			print("AV=%s AG=%s pt= %d %d %d %d" % (AV_coord, AG_coord, pt[0],pt[1],pt[2],pt[3]))
-			
-			
-
-			# store all the agents distances
+				#print("AV=%s AG=%s PT=%d" % (AV_coord, AG_coord, temp))	
+			#prox_MIN = np.min(pt)
+			#print("proximity_test output is %d %d %d %d" % (pt[0],pt[1],pt[2],pt[3]))
 			electionArray[agentID,:] = pt[0],pt[1],pt[2],pt[3]
+			
 	
-	# if you want to manually step through each tick
-	raw_input("Press Enter to continue...")
+	
+	
+	if (simTime>1):
 
-	if simTime>1:
-		# determin which agent is the closest to the AV
-		min_per_Agent = np.amin(electionArray,axis=1)
-		print("min_per_Agent  is %s" % (min_per_Agent))
+		# Show the minimum proximity per agent
+		PT_over_agents = np.min(electionArray, axis=1)
+		#if(diag):print("min PT per agent ", PT_over_agents )
+
+		for agentID in range (0,nA):
+			
+			old_ax = agentState[simTime-1,agentID,0]
+			old_ay = agentState[simTime-1,agentID,1]
+			curr_XR = XR_WD_status[agentID,0]
+			allAgentsXR = np.any(XR_WD_status[:,0])
+			min_PT_per_Agent = np.min(electionArray[agentID,:])
+			
+			
+			# find if any proximity test is within the trigger radius
+			trigger = (np.min(electionArray[agentID,:])<=trigger_radius)
+			if(diag):print(" ID %d PT=%d trigger=%d XR %d and anyXR= %d ectd=%d" % (agentID, min_PT_per_Agent, trigger, curr_XR, allAgentsXR, agentElected))
 
 
 
-	# if prox_MIN<trigger_radius:
-	# 	print("proximity triggered for agent %d at %d m" % (agentID, 1.5*prox_MIN))
+			if trigger and not(agentElected) and not(allAgentsXR):
+				agentElected = True
+				if(diag):print("agent elected to XR xy=%2i,%2i n=%3i t=%2i" % (old_ax, old_ay,nExp,simTime))
 
-	# 	if old_ax>9:
-	# 		crossing_road = -1 #if on lower pavement, move up
-	# 		if diag:print("Agent has decided to cross UP")
-	# 	if old_ax<2:
-	# 		crossing_road = 1 #if on upper pavement, move down
-	# 		if diag:print("Agent has decided to cross DOWN")
+				
+
+				#set XR from the agent state 
+				crossing_road = XR_WD_status[agentID,0]
+				
+				#agentIDs_with_lowest_values = np.argmin(min_PT_per_Agent) # return agnetID(s)
+				#print("min_PT_per_Agent=%s" % min_PT_per_Agent)
+				# set move orders for each agent
+				if old_ax>9:
+					crossing_road = -1 #if on lower pavement, move up
+					#if diag:print("Agent %d has decided to cross UP" % agentID)
+				if old_ax<2:
+					crossing_road = 1 #if on upper pavement, move down
+					#if diag:print("Agent %d has decided to cross DOWN" % agentID)
+
+				# set the agent state so no other agent crosses
+				XR_WD_status[agentID,0] = crossing_road
+				# execute move orders for each agent
+				new_x, new_y = moveXR(old_ax, old_ay, crossing_road, walk_direction)
+				new_x, new_y = checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y)
+				# Add delta to previous state
+				agentState[simTime,agentID,0] = new_x
+				agentState[simTime,agentID,1] = new_y
+				log_string = log_string + ", %4i, %4i" % (new_x,new_y)
+			elif curr_XR!=0:
+				# If already crossing continue
+				crossing_road = curr_XR
+				new_x, new_y = moveXR(old_ax, old_ay, crossing_road, walk_direction)
+				new_x, new_y = checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y)
+				# Add delta to previous state
+				agentState[simTime,agentID,0] = new_x
+				agentState[simTime,agentID,1] = new_y
+				log_string = log_string + ", %4i, %4i" % (new_x,new_y)
+
+			else:
+				# if no agent in range then continue on current direction
+				# set move order
+				crossing_road = XR_WD_status[agentID,0] 
+				walk_direction = XR_WD_status[agentID,1] 
+
+				# execute move orders
+				new_x, new_y = moveXR(old_ax, old_ay, crossing_road, walk_direction)
+				new_x, new_y = checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y)
+				# Add delta to previous state
+				agentState[simTime,agentID,0] = new_x
+				agentState[simTime,agentID,1] = new_y
+				log_string = log_string + ", %4i, %4i" % (new_x,new_y)
+			
+			#if diag: print("old_xy=%2i,%2i xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, new_x, new_y, nExp, simTime,walk_direction,crossing_road))
 
 
+	if(diag):raw_input("Press Enter to continue...")
+
+	# write position log
+	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
+	pLog.write(index + log_string + "\n")	
+
+
+
+def detectAction(crossing_road, walk_direction,simTime,agentID, diag=False):	
+
+	old2_ax = agentState[simTime-2,agentID,0]
+	old2_ay = agentState[simTime-2,agentID,1]
+	old_ax = agentState[simTime-1,agentID,0]
+	old_ay = agentState[simTime-1,agentID,1]
+	
+	#if diag:print("Agent old XY=%d %d new XY=%d,%d" % (old_ax, old_ay, ax, ay))
+	if old2_ay>old_ay: #walking direction
+		walk_direction = -1 #walking 'left'
+		if diag:print("Left walking detected")
+		if old_ay==0:walk_direction=1 #bounce off edges
+	if old2_ay<old_ay:
+		walk_direction = 1  #walking 'right'
+		if diag:print("Right walking detected")
+		if old_ay==gridW-1:walk_direction=-1 #bounce off edges
+	if old2_ay==old_ay:
+		#find if agent is crossing road
+		if old2_ax>old_ax:
+			crossing_road=-1 #moving 'up'
+			if diag:print("Agent is mid-crossing going up")
+		elif old2_ax<old_ax:
+			crossing_road=1  #moving 'down'				
+			if diag:print("Agent is mid-crossing going down")
+		elif old_ax==0:
+			crossing_road=1  #moving 'down'				
+		elif old_ax==gridH-1:
+			crossing_road=-1  #moving 'down'				
+		else:
+			print("##detectAction## WARNING: Unrecognised agent behaviour")
+	#check if at edge/corner
+	if old_ay==0:
+		walk_direction = 1
+	if old_ay==gridW-1:
+		walk_direction = -1
+	return crossing_road, walk_direction
+
+
+
+def checkEdge(gridW, gridH, old_ax, old_ay, new_x, new_y, diag=False):	
+	dx, dy = 0,0
+	if (new_y == 0) or (new_y > gridW-1):
+		dy = dy * -1
+		if diag:print("Agent at y-limit reversing")
+		new_y = int(old_ay + dy)
+	if (new_x == 0) or (new_x > gridH-1):
+		dx = dx * -1
+		new_x = int(old_ax + dx)
+		if diag:print("Agent at x-limit reversing")
+	return new_x, new_y
+
+
+def moveXR(old_x, old_y, XR, WD, diag=False):
 	# Move the agent based on the walk and crossing direction
-	dx=0
-	dy	=0
+	dx, dy = 0, 0
+	crossing_road = XR
+	walk_direction = WD
 	if crossing_road == -1:
 		dx = -1
 		dy = 0
@@ -1155,34 +1253,9 @@ def Election(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10,
 	if diag:print("Agent dx=%2i dy=%2i" % (dx, dy))
 
 	# Determine new position
-	new_x = int(old_ax + dx)
-	new_y = int(old_ay + dy)
-
-
-	# Reverse direction if agent hits edge
-	if (new_y == 0) or (new_y > gridW-1):
-		dy = dy * -1
-		if diag:print("Agent at y-limit reversing")
-		new_y = int(old_ay + dy)
-	if (new_x == 0) or (new_x > gridH-1):
-		dx = dx * -1
-		new_x = int(old_ax + dx)
-		if diag:print("Agent at x-limit reversing")
-
-			
-	if diag: print("old_xy=%2i,%2i xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, new_x, new_y, nExp, simTime,walk_direction,crossing_road))
-
-	# Add delta to previous state
-	agentState[simTime,agentID,0] = new_x
-	agentState[simTime,agentID,1] = new_y
-	log_string = log_string + ", %4i, %4i" % (new_x,new_y)
-
-	# write position log
-	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
-	pLog.write(index + log_string + "\n")
-
-
-
+	new_x = int(old_x + dx)
+	new_y = int(old_y + dy)
+	return new_x, new_y
 
 #Check penalties and living costs
 def checkReward(nA, simTime, agentState, agentScores, nExp, roadPenaltyMaxtrix):
@@ -1294,8 +1367,8 @@ gridH, gridW = 12, 66#66		# Each grid unit is 1.5m square
 pavement_rows = [0,1,10,11] 	#grid row of each pavement
 vAV = 6 						# 6u/s ~9.1m/s ~20mph
 vPed = 1 						# 1u/s ~1.4m/s ~3mph
-nA = 3							# Number of agents
-delay = 0.5 					# delay between each frame, slows sim down
+nA = 20								# Number of agents
+delay = 0.35 					# delay between each frame, slows sim down
 vt = 100						# points for a valid test
 AV_y = 0						# AV start position along road
 default_reward	= -1 			# Living cost
@@ -1309,7 +1382,7 @@ diag = True					# What level of CL diagnostics to show
 # RandBehaviour = walk pavements, randomly cross road with 1/11 chance
 # Proximity = cross when agent within specified radius
 agentChoices = ['RandAction', 'RandBehaviour','Proximity','Election']
-agentBehaviour = agentChoices[3]
+agentBehaviour = agentChoices[3] #TODO replace with CL arg
 
 # ======================================================================
 # --- Non-User Experiment Params -------------------------------------
@@ -1342,6 +1415,7 @@ end_rewards = [0,0,0,0] 					# Rewards moved out of panalty matrix
 exclusions = np.empty(shape=(nA,2)) #ID, xy
 maxT = (int)(round(gridW / vAV)+1)
 agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
+XR_WD_status = np.zeros(shape=(nA,2))
 
 # store a score for each agent and each experiment
 agentScores = np.zeros(shape=(nTests,nA)) 
@@ -1379,7 +1453,8 @@ running_score = 0
 simTime = 0
 nExp = 0 #experiment counter
 random.seed(nExp) #set the random seed based on the experiment number
-print("Running %d agents for %d tests" % (nA, nTests))
+print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+print("Running %d %s agents for %d tests..." % (nA, agentBehaviour,nTests))
 
 # Generate a list of start points for the agents so they are the same across behaviours
 startLocations = initLocation(nA, nTests)
@@ -1426,11 +1501,11 @@ while(not(done)) and (nExp <= nTests-1):
 	if agentBehaviour == 'RandAction':
 		randomMove(simTime, nA, agentState, pLog, rLog, nExp, AV_y)
 	if agentBehaviour == 'RandBehaviour':
-		randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=False)
+		randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
 	if agentBehaviour == 'Proximity':
-		Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=False)
+		Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
 	if agentBehaviour == 'Election':
-		Election(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=False)
+		Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, diag=diag)
 
 
 	# render the scene
