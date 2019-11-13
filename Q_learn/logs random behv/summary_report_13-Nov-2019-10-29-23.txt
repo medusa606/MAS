@@ -1,0 +1,29 @@
+======================================= 
+=========== Summary of Test =========== 
+
+Number of tests: 1000 
+Number of agents: 7 
+Agent type: RandBehaviourValid tests generated: 878 
+Test generation accuracy: 87.8% 
+Average test generation time: 7.15s 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+Living cost: -1 
+Road penalty: -5 
+Average agent score: -2.17 
+Max agent score: 94 
+Min agent score: -51 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+Agent speed: 1 units/s
+AV Speed: 6 units/s
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+95% confidence interval per agent: 
+-4.20 -0.13 
+-4.02 -0.32 
+-4.20 -0.13 
+-4.23 -0.11 
+-4.19 -0.14 
+-4.13 -0.21 
+-4.21 -0.12 
+Average ci95 over all agents is:
+-4.17 -0.17
+======================================= 
