@@ -1020,7 +1020,7 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 
 
 # Agent walks along pavement and randomly choose to cross the road
-def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=True):
+def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trigger_radius=15, diag=True):
 	from scipy.spatial import distance #for cityblock distance
 
 	electionArray = np.zeros(shape=(nA,4)) #store election results
@@ -1106,7 +1106,9 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			old_ay = agentState[simTime-1,agentID,1]
 			curr_XR = XR_WD_status[agentID,0]
 			allAgentsXR = np.any(XR_WD_status[:,0])
+			#choose the min PT
 			min_PT_per_Agent = np.min(electionArray[agentID,:])
+			best_candidate = -1
 			
 			
 			# find if any proximity test is within the trigger radius
@@ -1114,12 +1116,66 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			if(diag):print(" ID %d PT=%d trigger=%d XR %d and anyXR= %d ectd=%d" % (agentID, min_PT_per_Agent, trigger, curr_XR, allAgentsXR, agentElected))
 
 
+			#========================================================
+			#
+			#   ~~~~~~~~~~~    Hold the election!    ~~~~~~~~~~~~~
+			#
+			#========================================================
+			
+			# if there is a single agent, you have a Rotten Borough
+			if nA==1 and trigger:
+				best_candidate = 0
+				#print("best_candidate ID=%d" % best_candidate)
+			# otherwise hold an election to find the best candidate 
+			elif nA>1 and trigger:			
+				shortestPT_per_agent = np.min(electionArray,axis=1)
+				shortList = shortestPT_per_agent<trigger_radius
+				
+				#sum the no of True in this array
+				no_eligible_candidates = np.sum(shortList)
+				# no_eligible_candidates = np.shape(shortList)
 
-			if trigger and not(agentElected) and not(allAgentsXR):
+				#print("shortestPT_per_agent ", shortestPT_per_agent)
+				#print("no_eligible_candidates = %d" % no_eligible_candidates)
+				#print("shortList %s" % shortList)
+				
+				if no_eligible_candidates==1:
+					best_candidate = np.where(shortList)[0]
+				if no_eligible_candidates>1:
+					
+					#choose the minimum valid PT
+					best_candidate = np.where(shortestPT_per_agent == np.amin(shortestPT_per_agent))
+
+					#chose the largest valid PT
+					best_candidate = np.where(shortestPT_per_agent == np.amax(shortestPT_per_agent))
+			
+
+
+					#print("best_candidate ID=" , best_candidate)
+					#print(type(best_candidate))
+					bc_arr = np.asarray(best_candidate)
+					#print(bc_arr)
+					#print(np.shape(bc_arr))
+					flat_bc = bc_arr.flatten()
+					#print("best_candidate ID=%d" % flat_bc[0])
+					best_candidate = flat_bc[0]
+				#if(diag):raw_input("Press Enter to continue...")
+			else:
+				best_candidate = -1
+
+
+			a = best_candidate==agentID
+			b = not(agentElected)
+			c = not(allAgentsXR)
+			#print("a=%s b=%s c=%s " % (a, b, c))
+			
+
+
+			# if trigger and not(agentElected) and not(allAgentsXR):
+			if best_candidate==agentID and not(agentElected) and not(allAgentsXR):
 				agentElected = True
 				if(diag):print("agent elected to XR xy=%2i,%2i n=%3i t=%2i" % (old_ax, old_ay,nExp,simTime))
 
-				
 
 				#set XR from the agent state 
 				crossing_road = XR_WD_status[agentID,0]
@@ -1167,10 +1223,11 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 				agentState[simTime,agentID,1] = new_y
 				log_string = log_string + ", %4i, %4i" % (new_x,new_y)
 			
-			#if diag: print("old_xy=%2i,%2i xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, new_x, new_y, nExp, simTime,walk_direction,crossing_road))
+			if diag: print("old_xy=%2i,%2i xy=%2i,%2i n=%3i t=%2i WD=%2i XR=%2i" % (old_ax, old_ay, new_x, new_y, nExp, simTime,walk_direction,crossing_road))
+			#print("\n")
 
 
-	if(diag):raw_input("Press Enter to continue...")
+	# if(diag):raw_input("Press Enter to continue...")
 
 	# write position log
 	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
@@ -1362,372 +1419,403 @@ def initLocation(nA, nTests):
 # ======================================================================
 # --- User Experiment Params -----------------------------------------
 
-nTests = 1000						# Number of experiements to run
-gridH, gridW = 12, 66#66		# Each grid unit is 1.5m square
+nTests = 1000					# Number of experiements to run
+gridH, gridW = 12, 66			# Each grid unit is 1.5m square
 pavement_rows = [0,1,10,11] 	#grid row of each pavement
 vAV = 6 						# 6u/s ~9.1m/s ~20mph
 vPed = 1 						# 1u/s ~1.4m/s ~3mph
-nA = 20								# Number of agents
+nA = 3							# Number of agents
 delay = 0.35 					# delay between each frame, slows sim down
 vt = 100						# points for a valid test
 AV_y = 0						# AV start position along road
 default_reward	= -1 			# Living cost
 road_pen = -5					# Penalty for being in road
 
-display_grid = True				# Show the grid
-diag = True					# What level of CL diagnostics to show
+display_grid = False			# Show the grid
+diag = False					# What level of CL diagnostics to show
+loopAgentList = True 			# use nAlist to loop through nA
 
 # Choose the type of agent behaviour
-# RandAction	= take random actions
-# RandBehaviour = walk pavements, randomly cross road with 1/11 chance
-# Proximity = cross when agent within specified radius
+# 	RandAction	= take random actions
+# 	RandBehaviour = walk pavements, randomly cross road with 1/11 chance
+# 	Proximity = cross when agent within specified radius
+#	Election = elects a single agent within range to cross road
 agentChoices = ['RandAction', 'RandBehaviour','Proximity','Election']
 agentBehaviour = agentChoices[3] #TODO replace with CL arg
 
 # ======================================================================
-# --- Non-User Experiment Params -------------------------------------
+# --- Non-User Experiment Params ---------------------------------------
 
-if not(display_grid):
-	delay = 0
-	diag = False
-validTests = 0.
-roadPenaltyMaxtrix = np.zeros(shape=(gridW,gridH))
-roadPenaltyMaxtrix[:,:] = road_pen
-roadPenaltyMaxtrix[:,pavement_rows] = default_reward
-
-road_positions = [(i,j) for j in range(0,gridW) for i in [2,3,4,5,6,7,8,9]] 
-road_rewards 	= [road_pen for i in range(4*gridH)] 
-
-AV_y = 0
-AV_x = [2,3,4,5]
-AV_state = (AV_x,AV_y)
-blocked_positions = [(2,AV_y),(3,AV_y),(4,AV_y),(5,AV_y)]
-
-# generate a grid showing position of the AV_x
-AVpositionMaxtrix = moveAV(gridW,gridH,AV_y)
-#print(AVpositionMaxtrix)
-
-start_pos = None
-end_positions = [(2,0),(3,0),(4,0),(5,0)] 	# initial AV position
-end_rewards = [0,0,0,0] 					# Rewards moved out of panalty matrix
-
-# record agentStates and excluded start positions
-exclusions = np.empty(shape=(nA,2)) #ID, xy
-maxT = (int)(round(gridW / vAV)+1)
-agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
-XR_WD_status = np.zeros(shape=(nA,2))
-
-# store a score for each agent and each experiment
-agentScores = np.zeros(shape=(nTests,nA)) 
-
-#store the time taken to generate a valid test if applicable
-test_gen_time = np.zeros(shape=(nTests,1)) 
+if loopAgentList:
+	nAList = [1,2,3,4,5,6,7,8,9,10,15,20] # Loop through list of agents
+else:
+	nAList = [nA]
 
 # ======================================================================
-# --- MDP Agent Experiment Params --------------------------------------
+# --- Loop through Specified Number of Agents --------------------------
+for nA in nAList:
 
-alpha = 0.04
-epsilon = 0.2
-discount = 0.99
+	if not(display_grid):
+		delay = 0
+		diag = False
+	validTests = 0.
+	roadPenaltyMaxtrix = np.zeros(shape=(gridW,gridH))
+	roadPenaltyMaxtrix[:,:] = road_pen
+	roadPenaltyMaxtrix[:,pavement_rows] = default_reward
 
-# ======================================================================
-# --- Logs -------------------------------------------------------------
-ts = datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S")
+	road_positions = [(i,j) for j in range(0,gridW) for i in [2,3,4,5,6,7,8,9]] 
+	road_rewards 	= [road_pen for i in range(4*gridH)] 
 
-rsLog = open("logs/initial_random_log_%s.txt" % ts, "w")	#random initial location log
-rsLog.write("nExp"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
+	AV_y = 0
+	AV_x = [2,3,4,5]
+	AV_state = (AV_x,AV_y)
+	blocked_positions = [(2,AV_y),(3,AV_y),(4,AV_y),(5,AV_y)]
 
-rLog = open("logs/random_log_%s.txt" % ts, "w")				#random movement log
-rLog.write("simTime, rand \n")
+	# generate a grid showing position of the AV_x
+	AVpositionMaxtrix = moveAV(gridW,gridH,AV_y)
+	#print(AVpositionMaxtrix)
 
-sLog = open("logs/score_log_%s.txt" % ts, "w")				#score for each experiment per agent
-sLog.write("nExp, valid"+ "".join(',  A%d' % i for i in range(0,nA)) +"\n")
+	start_pos = None
+	end_positions = [(2,0),(3,0),(4,0),(5,0)] 	# initial AV position
+	end_rewards = [0,0,0,0] 					# Rewards moved out of panalty matrix
 
-pLog = open("logs/position_log_%s.txt" % ts, "w")
-pLog.write("nExp, Time,  AVy"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
+	# record agentStates and excluded start positions
+	exclusions = np.empty(shape=(nA,2)) #ID, xy
+	maxT = (int)(round(gridW / vAV)+1)
+	agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
+	XR_WD_status = np.zeros(shape=(nA,2))
 
-# ======================================================================
-# --- Initialisation ---------------------------------------------------
+	# store a score for each agent and each experiment
+	agentScores = np.zeros(shape=(nTests,nA)) 
+	valid_test_scores = np.array([])
 
-running_score = 0
-simTime = 0
-nExp = 0 #experiment counter
-random.seed(nExp) #set the random seed based on the experiment number
-print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-print("Running %d %s agents for %d tests..." % (nA, agentBehaviour,nTests))
+	#store the time taken to generate a valid test if applicable
+	test_gen_time = np.zeros(shape=(nTests,1)) 
 
-# Generate a list of start points for the agents so they are the same across behaviours
-startLocations = initLocation(nA, nTests)
-if diag: print("Generating startLocations",startLocations)
+	# ======================================================================
+	# --- MDP Agent Experiment Params --------------------------------------
 
-# Use the position list to set agent states 
-randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
+	alpha = 0.04
+	epsilon = 0.2
+	discount = 0.99
 
-# Initialist the environment class and make an initial render of the board
-env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
+	# ======================================================================
+	# --- Logs -------------------------------------------------------------
+	ts = datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S")
 
-# Comment out other uses of Random
-# action_space = env.action_space
-# state_space = env.state_space
-# agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
+	rsLog = open("logs/initial_random_log_%s.txt" % ts, "w")	#random initial location log
+	rsLog.write("nExp"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
 
-# Display the grid lines, q-values, agent positions
-if display_grid:
-	MASrender(simTime, nA, agentState)
-	#env.render(agent.qvalues, running_score, simTime, nA, agentState)
-time.sleep(delay)
-# state = env.get_state()
+	rLog = open("logs/random_log_%s.txt" % ts, "w")				#random movement log
+	rLog.write("simTime, rand \n")
 
+	sLog = open("logs/score_log_%s.txt" % ts, "w")				#score for each experiment per agent
+	sLog.write("nExp, valid"+ "".join(',  A%2i' % i for i in range(0,nA)) +"\n")
 
+	pLog = open("logs/position_log_%s.txt" % ts, "w")
+	pLog.write("nExp, Time,  AVy"+"".join(',  A%dx,  A%dy' % (i,i) for i in range(0,nA)) + " \n")
 
+	vLog = open("logs/valid_log_%s.txt" % ts, "w")
+	vLog.write("nExp, valid"+ "".join(',  A%2i' % i for i in range(0,nA)) +"\n")
 
+	# ======================================================================
+	# --- Initialisation ---------------------------------------------------
 
-# Flag to indicate if a valid test has been generated
-done = False
+	running_score = 0
+	simTime = 0
+	nExp = 0 #experiment counter
+	random.seed(nExp) #set the random seed based on the experiment number
+	if diag: print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+	if diag: print("Running %d %s agents for %d tests..." % (nA, agentBehaviour,nTests))
 
-# while(nExp <= nTests):
-while(not(done)) and (nExp <= nTests-1):
+	# Generate a list of start points for the agents so they are the same across behaviours
+	startLocations = initLocation(nA, nTests)
+	if diag: print("Generating startLocations",startLocations)
 
-	#check if series complete
-	if(nExp>nTests):
-		done=True
+	# Use the position list to set agent states 
+	randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
 
-	#increment time
-	if simTime==0 and diag: print("Experiment Number", nExp)
-	#print("simTime=", simTime)
-	simTime = simTime + 1
+	# Initialist the environment class and make an initial render of the board
+	env = Environment(gridH, gridW, end_positions, end_rewards, blocked_positions, start_pos, default_reward, road_positions, road_rewards)
 
-	# move agents	
-	if agentBehaviour == 'RandAction':
-		randomMove(simTime, nA, agentState, pLog, rLog, nExp, AV_y)
-	if agentBehaviour == 'RandBehaviour':
-		randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
-	if agentBehaviour == 'Proximity':
-		Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
-	if agentBehaviour == 'Election':
-		Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, diag=diag)
+	# Comment out other uses of Random
+	# action_space = env.action_space
+	# state_space = env.state_space
+	# agent = FeatAgent(alpha, epsilon, discount, action_space, state_space)
 
-
-	# render the scene
-	# features = env.percepts(AV_state) # now features can be passed to agent
-	# possible_actions = env.get_possible_actions()
-	# predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
-	# action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
-	# next_state, reward, done = env.step(action)
-
-	
-	reward = checkReward(nA, simTime, agentState, agentScores, nExp, roadPenaltyMaxtrix) #Check reward and end positions (overrules env.step)
-	#print("Agent scores are: ", agentScores)
-
-	running_score = running_score + reward
+	# Display the grid lines, q-values, agent positions
 	if display_grid:
-		# env.render(agent.qvalues, running_score, simTime, nA, agentState)
 		MASrender(simTime, nA, agentState)
-	# next_state_possible_actions = env.get_possible_actions()
-	# agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
-	# state = next_state
+		#env.render(agent.qvalues, running_score, simTime, nA, agentState)
 	time.sleep(delay)
-
-	
-
-# move AV
-	for i in range(0,vAV):
-
-		# print("time + AVindex", simTime, i)
-
-		# Move AV and update end positions and reward locations
-		AV_y+=1
-		AVpositionMaxtrix = moveAV(gridW,gridH,AV_y)
-		AVlist = (np.transpose(np.nonzero(AVpositionMaxtrix))) # this is in order (y,x) (horizontal,vertical)
-		# AVlist = (np.nonzero(AVpositionMaxtrix))
-		# print("AVlist")
-		# print(AVlist)
+	# state = env.get_state()
 
 
-		#use broadcasting to check if an agent coordinate pair exists in the AV spaces
-		yx_agentList = np.transpose(np.array([agentState[simTime,:,0],agentState[simTime,:,1]])).astype(int)
-		# print("yx_agentList")
-		# print(yx_agentList)
-		validTest = (yx_agentList[:,None] == AVlist).all(2).any(1).any()
-		# print(validTest)
 
-		indexIDbool = ((yx_agentList[:,None] == AVlist).all(2)).any(1)
-		indexID = [i for i, x in enumerate(indexIDbool) if x]
-		# print("indexID",indexID)
+
+
+	# Flag to indicate if a valid test has been generated
+	done = False
+
+	# while(nExp <= nTests):
+	while(not(done)) and (nExp <= nTests-1):
+
+		#check if series complete
+		if(nExp>nTests):
+			done=True
+
+		#increment time
+		if simTime==0 and diag: print("Experiment Number", nExp)
+		#print("simTime=", simTime)
+		simTime = simTime + 1
+
+		# move agents	
+		if agentBehaviour == 'RandAction':
+			randomMove(simTime, nA, agentState, pLog, rLog, nExp, AV_y)
+		if agentBehaviour == 'RandBehaviour':
+			randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
+		if agentBehaviour == 'Proximity':
+			Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
+		if agentBehaviour == 'Election':
+			Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, diag=diag)
+
+
+		# render the scene
+		# features = env.percepts(AV_state) # now features can be passed to agent
+		# possible_actions = env.get_possible_actions()
+		# predicted_features = env.one_step_ahead_features(possible_actions, AV_state) #predict best outcome from available actions
+		# action, q_val_dash = agent.get_action(state, possible_actions, predicted_features) # for feature-based
+		# next_state, reward, done = env.step(action)
+
 		
-		# 	#print("check",check.all())
-		if(validTest):
-			# print("Agent ",indexID, " has generated a valid test")
-			# Add reward
-			curr_score = agentScores[nExp,indexID]
-			agentScores[nExp,indexID] = curr_score + vt	
-			validTests = validTests + 1
-			done = True 		# reset level
+		reward = checkReward(nA, simTime, agentState, agentScores, nExp, roadPenaltyMaxtrix) #Check reward and end positions (overrules env.step)
+		#print("Agent scores are: ", agentScores)
 
-
-		
-		env.end_positions = [(2,AV_y),(3,AV_y),(4,AV_y),(5,AV_y)]
+		running_score = running_score + reward
 		if display_grid:
-			env.update_state() #renders road and end positions/rewards
+			# env.render(agent.qvalues, running_score, simTime, nA, agentState)
+			MASrender(simTime, nA, agentState)
+		# next_state_possible_actions = env.get_possible_actions()
+		# agent.feat_q_update(state, AV_state, action, reward, next_state, next_state_possible_actions, done, features, q_val_dash)
+		# state = next_state
+		time.sleep(delay)
 
-		# print("AV_x, gridW = ",AV_x, gridW)
-		# env.render(agent.qvalues, running_score, simTime, nA, agentState)
-		# done = checkValidTest(nA, simTime, agentState)
 		
-		#print("Agent X: ", agentState[simTime,:,0])
-		#print("Agent Y: ", agentState[simTime,:,1])
-		#print("blocked_positions are: ", blocked_positions)
-		# print("Agent scores are: ", agentScores)
 
-		# If collision occurs end the experiment
-		if done == True:
-			if diag:
-				print("~~~~~~~~~~~~~~~~~~~~~")
-				print("Valid test generated!")
-				print("~~~~~~~~~~~~~~~~~~~~~")
+	# move AV
+		for i in range(0,vAV):
+
+			# Move AV and update end positions and reward locations
+			AV_y+=1
+			AVpositionMaxtrix = moveAV(gridW,gridH,AV_y)
+			AVlist = (np.transpose(np.nonzero(AVpositionMaxtrix))) # this is in order (y,x) (horizontal,vertical)
+
+			#use broadcasting to check if an agent coordinate pair exists in the AV spaces
+			yx_agentList = np.transpose(np.array([agentState[simTime,:,0],agentState[simTime,:,1]])).astype(int)
+			validTest = (yx_agentList[:,None] == AVlist).all(2).any(1).any()
+			indexIDbool = ((yx_agentList[:,None] == AVlist).all(2)).any(1)
+			indexID = [i for i, x in enumerate(indexIDbool) if x]
+
+			# If a vallid test is found update scores
+			if(validTest):
+				if(diag): print("Agent ",indexID, " has generated a valid test")
+				curr_score = agentScores[nExp,indexID]
+				agentScores[nExp,indexID] = curr_score + vt	
+				validTests = validTests + 1
+				done = True # reset level
+			
+			# update the graphics frame
+			env.end_positions = [(2,AV_y),(3,AV_y),(4,AV_y),(5,AV_y)]
+			if display_grid:
+				env.update_state() #renders road and end positions/rewards
+
+			# If collision occurs end the experiment
+			if done == True:
+				if diag:
+					print("~~~~~~~~~~~~~~~~~~~~~")
+					print("Valid test generated!")
+					print("~~~~~~~~~~~~~~~~~~~~~")
+
+				#log the scores for this run
+				scoresRound = agentScores[nExp,:]
+				avg_scoresRound = np.mean(scoresRound)
+				log_string = "".join(', %4i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
+				rsindex = "%4i,%6i" % (nExp,1)
+				sLog.write(rsindex + log_string + "\n")
+				# print(rsindex + log_string)
+				vLog.write(rsindex + log_string + "\n")
+				valid_test_scores=np.append(valid_test_scores,avg_scoresRound)
+				# print("scoresRound=%s" % scoresRound)
+				# print("avg_scoresRound=%s" % avg_scoresRound)
+				# print("valid_test_scores=%s" % valid_test_scores)
+
+				env.reset_state()
+				if display_grid:
+					MASrender(simTime, nA, agentState)
+					# env.render(agent.qvalues, running_score, simTime, nA, agentState)
+				state = env.get_state()
+				running_score = 0
+				test_gen_time[nExp] = simTime
+				nExp = nExp + 1
+				if (nExp>nTests-1):
+					break
+				#print("Experiment Number", nExp)
+				random.seed(nExp)
+				# Reset all agents
+				AV_y=0
+				exclusions = np.empty(shape=(nA,2)) #ID, xy
+				maxT = (int)(round(gridW / vAV)+1)
+				agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
+				simTime = 0
+				randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
+
+				done = False 
+				#logData()
+				
+				#print(log_string)
+
+				#print("initial state for agent", agentID," is ",agentState[simTime,agentID,:])
+				
 
 
-			#log the scores for this run
-			scoresRound = agentScores[nExp,:]
-			log_string = "".join(', %3i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
-			rsindex = "%4i,%6i" % (nExp,1)
-			sLog.write(rsindex + log_string + "\n")
-			# print(rsindex + log_string)
+				continue
+			# Reset the game if the AV reaches the end
+			if AV_y>=gridW-1:
+				if diag: print("AV exit, resetting...")
+				AV_y=0
+				
+
+				#log the scores for this run
+				scoresRound = agentScores[nExp,:]
+				log_string = "".join(', %3i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
+				rsindex = "%4i,%6i" % (nExp,0)
+				sLog.write(rsindex + log_string + "\n")
+				# print(rsindex + log_string)
 
 
-			env.reset_state()
+				env.reset_state()
+				running_score = 0
+				test_gen_time[nExp] = simTime
+				nExp = nExp + 1
+				if (nExp>nTests-1):
+					break
+				#print("Experiment Number", nExp)
+				random.seed(nExp)
+				#logData()
+				AV_y=0
+				exclusions = np.empty(shape=(nA,2)) #ID, xy
+				maxT = (int)(round(gridW / vAV)+1)
+				agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
+				simTime = 0
+				randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
+	 
+				done = False
+				continue
+			AV_state = (AV_x,AV_y)
 			if display_grid:
 				MASrender(simTime, nA, agentState)
 				# env.render(agent.qvalues, running_score, simTime, nA, agentState)
-			state = env.get_state()
-			running_score = 0
-			test_gen_time[nExp] = simTime
-			nExp = nExp + 1
-			if (nExp>nTests-1):
-				break
-			#print("Experiment Number", nExp)
-			random.seed(nExp)
-			# Reset all agents
-			AV_y=0
-			exclusions = np.empty(shape=(nA,2)) #ID, xy
-			maxT = (int)(round(gridW / vAV)+1)
-			agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
-			simTime = 0
-			randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
 
-			done = False 
-			#logData()
-			
-			#print(log_string)
-
-			#print("initial state for agent", agentID," is ",agentState[simTime,agentID,:])
-			
+		# if you want to manually step through each tick
+		# raw_input("Press Enter to continue...")
 
 
-			continue
-		# Reset the game if the AV reaches the end
-		if AV_y>=gridW-1:
-			if diag: print("AV exit, resetting...")
-			AV_y=0
-			
-
-			#log the scores for this run
-			scoresRound = agentScores[nExp,:]
-			log_string = "".join(', %3i' % scoresRound[ind] for ind in range(0,len(scoresRound)))
-			rsindex = "%4i,%6i" % (nExp,0)
-			sLog.write(rsindex + log_string + "\n")
-			# print(rsindex + log_string)
+	# close log files
+	if diag: print("Test complete, writing log files...")
+	rLog.close()
+	sLog.close()
+	rsLog.close()
+	pLog.close()
+	vLog.close()
 
 
-			env.reset_state()
-			running_score = 0
-			test_gen_time[nExp] = simTime
-			nExp = nExp + 1
-			if (nExp>nTests-1):
-				break
-			#print("Experiment Number", nExp)
-			random.seed(nExp)
-			#logData()
-			AV_y=0
-			exclusions = np.empty(shape=(nA,2)) #ID, xy
-			maxT = (int)(round(gridW / vAV)+1)
-			agentState = np.empty(shape=(maxT,nA,2)) #state is [time,ID,position(x,y)]
-			simTime = 0
-			randomStart(startLocations,simTime,nA,agentState,rsLog,pLog,nExp) 
- 
-			done = False
-			continue
-		AV_state = (AV_x,AV_y)
-		if display_grid:
-			MASrender(simTime, nA, agentState)
-			# env.render(agent.qvalues, running_score, simTime, nA, agentState)
+	#calc stats
+	import scipy.stats as st
+	accuracy_ratio = 100*(validTests/nTests)
+	report_string = "n=%d nA=%d Accuracy=%0.2f" % (nTests, nA, accuracy_ratio)
+	
+	agScore_AVG = np.average(agentScores)
+	agScore_MAX = np.max(agentScores)
+	agScore_MIN = np.min(agentScores)
+	agScore_95ci = st.t.interval(0.95, len(agentScores)-1, loc=np.mean(agentScores), scale=st.sem(agentScores))
+	ci95= (zip(*agScore_95ci))
+	ci95Arr = np.asarray(ci95)
+	ci95_low = np.mean(ci95Arr[:,0])
+	ci95_hig = np.mean(ci95Arr[:,1])
+	# print("ci95 low %.2f high %.2f" % (ci95_low, ci95_hig))
 
-	# if you want to manually step through each tick
-	# raw_input("Press Enter to continue...")
+	v_avg = np.average(valid_test_scores)
+	v_min = np.min(valid_test_scores)
+	v_max = np.max(valid_test_scores)
 
-
-# close log files
-if diag: print("Test complete, writing log files...")
-rLog.close()
-sLog.close()
-rsLog.close()
-pLog.close()
+	#print(np.shape(agentScores))
+	#print(np.shape(valid_test_scores))
+	slen = np.shape(valid_test_scores)[0]
+	valid_test_scores = valid_test_scores.reshape(slen,1)
+	#print(np.shape(valid_test_scores))
 
 
-#calc stats
-import scipy.stats as st
-accuracy_ratio = 100*(validTests/nTests)
-report_string = "n=%d nA=%d Accuracy=%0.2f" % (nTests, nA, accuracy_ratio)
-agScore_AVG = np.average(agentScores)
-agScore_MAX = np.max(agentScores)
-agScore_MIN = np.min(agentScores)
-agScore_95ci = st.t.interval(0.95, len(agentScores)-1, loc=np.mean(agentScores), scale=st.sem(agentScores))
-ci95= (zip(*agScore_95ci))
-
-ci95Arr = np.asarray(ci95)
-ci95_low = np.mean(ci95Arr[:,0])
-ci95_hig = np.mean(ci95Arr[:,1])
-# print("ci95 low %.2f high %.2f" % (ci95_low, ci95_hig))
+	v_95ci = st.t.interval(0.95, len(valid_test_scores)-1, loc=np.mean(valid_test_scores), scale=st.sem(valid_test_scores))
+	v_ci95= (zip(*v_95ci))
+	v_ci95Arr = np.asarray(v_ci95)
+	v_ci95_low = np.mean(v_ci95Arr[:,0])
+	v_ci95_hig = np.mean(v_ci95Arr[:,1])
+	# print("ci95 low %.2f high %.2f" % (ci95_low, ci95_hig))
+	
 
 
-# generate report
-print("Generating summary report...")
-summary = open("logs/summary_report_%s.txt" % ts, "w")				
-summary.write("======================================= \n")
-summary.write("=========== Summary of Test =========== \n\n")
-summary.write("Number of tests: %d \n" 				% nTests)
-summary.write("Number of agents: %d \n" 			% nA)
-summary.write("Agent type: %s"						% agentBehaviour)
-summary.write("Valid tests generated: %d \n" 		% validTests)
-summary.write("Test generation accuracy: %.1f%% \n"	% accuracy_ratio)
-summary.write("Average test generation time: %.2fs \n"	% np.mean(test_gen_time))
-summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
-summary.write("Living cost: %d \n" 					% default_reward)
-summary.write("Road penalty: %d \n" 				% road_pen)
-summary.write("Average agent score: %.2f \n" 		% agScore_AVG)
-summary.write("Max agent score: %d \n" 				% agScore_MAX)
-summary.write("Min agent score: %d \n" 				% agScore_MIN)
-summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
-summary.write("Agent speed: %d units/s\n" 			% vPed)
-summary.write("AV Speed: %d units/s\n" 				% vAV)
-summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
-summary.write("95% confidence interval per agent: \n")
-summary.write("".join('%.2f %.2f \n' % x for x in ci95))
-summary.write("Average ci95 over all agents is:\n")
-summary.write("%.2f %.2f\n" % (ci95_low, ci95_hig))
-summary.write("======================================= \n")
-summary.close()
-tgt = np.mean(test_gen_time)
-print("Test complete...")
-print("Agent type: %s"						% agentBehaviour)
-print("Test generation accuracy: %.1f%%"	% accuracy_ratio)
-print("Average test generation time: %.2fs"	% tgt)
-print("Min agent score: %d" 				% agScore_MIN)
-print("Max agent score: %d" 				% agScore_MAX)
-print("Average agent score: %.2f" 			% agScore_AVG)
-print("ci95_low %.2f" 						% (ci95_low))
-print("ci95_hig %.2f " 					% (ci95_hig))
+	# generate report
+	if diag: print("Generating summary report...")
+	summary = open("logs/summary_report_%s.txt" % ts, "w")				
+	summary.write("======================================= \n")
+	summary.write("=========== Summary of Test =========== \n\n")
+	summary.write("Number of tests: %d \n" 				% nTests)
+	summary.write("Number of agents: %d \n" 			% nA)
+	summary.write("Agent type: %s"						% agentBehaviour)
+	summary.write("Valid tests generated: %d \n" 		% validTests)
+	summary.write("Test generation accuracy: %.1f%% \n"	% accuracy_ratio)
+	summary.write("Average test generation time: %.2fs \n"	% np.mean(test_gen_time))
+	summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
+	summary.write("Living cost: %d \n" 					% default_reward)
+	summary.write("Road penalty: %d \n" 				% road_pen)
+	summary.write("Average agent score: %.2f \n" 		% agScore_AVG)
+	summary.write("Max agent score: %d \n" 				% agScore_MAX)
+	summary.write("Min agent score: %d \n" 				% agScore_MIN)
+	summary.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
+	summary.write("Agent speed: %d units/s\n" 			% vPed)
+	summary.write("AV Speed: %d units/s\n" 				% vAV)
+	summary.write("~~~~ Scores (All tests) ~~~~~~~~~~~~~~~ \n")
+	summary.write("95% confidence interval per agent: \n")
+	summary.write("".join('%.2f %.2f \n' % x for x in ci95))
+	summary.write("Average ci95 over all agents is:\n")
+	summary.write("%.2f %.2f\n" % (ci95_low, ci95_hig))
+	summary.write("~~~~ Scores (Valid tests) ~~~~~~~~~~~~~ \n")
+	summary.write("95% confidence interval per agent: \n")
+	summary.write("".join('%.2f %.2f \n' % x for x in v_ci95))
+	summary.write("Average ci95 over all agents is:\n")
+	summary.write("%.2f %.2f\n" % (v_ci95_low, v_ci95_hig))
+	summary.write("======================================= \n")
+	summary.close()
 
-print("%.1f, %.2f, %d, %d, %0.2f, %0.2f, %0.2f"  % (accuracy_ratio,tgt,agScore_MIN,agScore_MAX,agScore_AVG,ci95_low,ci95_hig))
+	tgt = np.mean(test_gen_time)
+	if diag:
+		print("Test complete...")
+		print("Agent type: %s"						% agentBehaviour)
+		print("Test generation accuracy: %.1f%%"	% accuracy_ratio)
+		print("Average test generation time: %.2fs"	% tgt)
+		print("Min agent score: %d" 				% agScore_MIN)
+		print("Max agent score: %d" 				% agScore_MAX)
+		print("Average agent score: %.2f" 			% agScore_AVG)
+		print("ci95_low %.2f" 						% (ci95_low))
+		print("ci95_hig %.2f " 						% (ci95_hig))
 
-print("Finished\n\n")
+		print("Min agent score: %d" 				% v_min)
+		print("Max agent score: %d" 				% v_max)
+		print("Average agent score: %.2f" 			% v_avg)
+		print("ci95_low %.2f" 						% (v_ci95_low))
+		print("ci95_hig %.2f " 						% (v_ci95_hig))
+
+	print("%d,%.1f,%.2f,%d,%d,%0.2f,%0.2f,%0.2f,%d,%d,%0.2f,%0.2f,%0.2f" % 
+		(nA, accuracy_ratio,tgt,agScore_MIN,agScore_MAX,agScore_AVG,ci95_low,ci95_hig,v_min,v_max,v_avg,v_ci95_low,v_ci95_hig))
+
+	if diag: print("Finished\n\n")
