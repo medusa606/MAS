@@ -919,7 +919,7 @@ def randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=True):
 
 
 # Agent walks along pavement and randomly choose to cross the road
-def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10, diag=False):
+def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=15, diag=False):
 	
 	from scipy.spatial import distance #for cityblock distance
 	
@@ -1020,12 +1020,15 @@ def Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=10
 
 
 # Agent walks along pavement and randomly choose to cross the road
-def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trigger_radius=15, diag=True):
+def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, CP=True, ECA=True, trigger_radius=15, diag=True):
 	from scipy.spatial import distance #for cityblock distance
 
 	electionArray = np.zeros(shape=(nA,4)) #store election results
 	# XR_WD_status = np.zeros(shape=(nA,2))
 	agentElected = False
+	use_closest_agent = ECA
+	CP_array = np.zeros(shape=(nA,))
+
 
 	for agentID in range(0,nA):
 		walk_direction = 0
@@ -1070,12 +1073,15 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			log_string = log_string + ", %4i, %4i" % (new_x,new_y)	
 
 
-
 		#find walk direction if sim started
 		if simTime>1:
 			crossing_road, walk_direction = detectAction(crossing_road, walk_direction,simTime,agentID)
 			# XR_WD_status[agentID,0] = crossing_road #don't want to update this as is election specific
 			XR_WD_status[agentID,1] = walk_direction
+
+			#see which agents on pavement closest to AV
+			all_agents_upper_pavement = agentState[simTime-1,:,0] < 2
+			
 			
 			#Cityblock distance to AV
 			pt = np.zeros(shape=(4,1))
@@ -1090,6 +1096,9 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			#prox_MIN = np.min(pt)
 			#print("proximity_test output is %d %d %d %d" % (pt[0],pt[1],pt[2],pt[3]))
 			electionArray[agentID,:] = pt[0],pt[1],pt[2],pt[3]
+
+			# see which agents on upper pavement
+			
 			
 	
 	
@@ -1123,43 +1132,109 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			#========================================================
 			
 			# if there is a single agent, you have a Rotten Borough
-			if nA==1 and trigger:
+			if nA==1 and trigger and not(allAgentsXR):
 				best_candidate = 0
 				#print("best_candidate ID=%d" % best_candidate)
 			# otherwise hold an election to find the best candidate 
-			elif nA>1 and trigger:			
+			elif nA>1 and trigger and not(allAgentsXR):			
 				shortestPT_per_agent = np.min(electionArray,axis=1)
 				shortList = shortestPT_per_agent<trigger_radius
+				p_shortList = np.logical_and(shortList, all_agents_upper_pavement)
 				
+				# print("shortestPT_per_agent ", shortestPT_per_agent)
+				# print("shortList %s" % shortList)
+				# print("p_shortList %s" % p_shortList)
+
+
 				#sum the no of True in this array
 				no_eligible_candidates = np.sum(shortList)
-				# no_eligible_candidates = np.shape(shortList)
+				# print("no_eligible_candidates = %d" % no_eligible_candidates)
 
-				#print("shortestPT_per_agent ", shortestPT_per_agent)
-				#print("no_eligible_candidates = %d" % no_eligible_candidates)
-				#print("shortList %s" % shortList)
+
+				# sum the pavement shortlist
+				sum_p_shortList = np.sum(p_shortList)
+				if sum_p_shortList==0:
+					# if all zero then set all True to allow subsequent logic 
+					sum_p_shortList=1
+				# print("sum_p_shortList",sum_p_shortList)
+
+
+				# find if any agent meets both criteria
+				shortAnd = np.logical_and(shortList, p_shortList)
+				p_shortAnd = np.sum(shortAnd)
+				# print("shortAnd",shortAnd)
+				# print("p_shortAnd",p_shortAnd)
+
+
+
+
+
+
 				
 				if no_eligible_candidates==1:
 					best_candidate = np.where(shortList)[0]
-				if no_eligible_candidates>1:
-					
-					#choose the minimum valid PT
-					best_candidate = np.where(shortestPT_per_agent == np.amin(shortestPT_per_agent))
-
-					#chose the largest valid PT
-					best_candidate = np.where(shortestPT_per_agent == np.amax(shortestPT_per_agent))
+				
+				if no_eligible_candidates>1 and p_shortAnd==0:					
+					#choose to elect the closest or farthest agent from the AV
+					if use_closest_agent:
+						best_candidate = np.where(shortestPT_per_agent == np.amin(shortestPT_per_agent))
+					else:
+						# chose the agent within the radius but furthest from the AV
+						best_candidate = np.where(shortestPT_per_agent == np.amax(shortestPT_per_agent))
 			
-
-
 					#print("best_candidate ID=" , best_candidate)
 					#print(type(best_candidate))
 					bc_arr = np.asarray(best_candidate)
 					#print(bc_arr)
 					#print(np.shape(bc_arr))
 					flat_bc = bc_arr.flatten()
-					#print("best_candidate ID=%d" % flat_bc[0])
+					# print("best_candidate ID=" , flat_bc)
 					best_candidate = flat_bc[0]
-				#if(diag):raw_input("Press Enter to continue...")
+
+
+
+				# If there is a candidate on the closer pavement use this one
+				if no_eligible_candidates>1 and p_shortAnd>0:					
+					
+					# print("\nChoice for agent on upper pavement")
+
+					# return the indexes of where shortAnd==True
+					shortAnd_idx = np.argwhere(shortAnd==True)
+					# print("shortAnd_idx",shortAnd_idx)
+
+					#chose any candidate from the list
+					best_candidate = shortAnd_idx[0]
+					# print("best_candidate",best_candidate)
+
+					# # Select the shortest PT
+					# minPT = np.min(shortestPT_per_agent[shortAnd_idx])
+					# maxPT = np.max(shortestPT_per_agent[shortAnd_idx])
+
+					# #choose to elect the closest or farthest agent from the AV
+					# if use_closest_agent:
+					# 	best_candidate = np.where(shortestPT_per_agent == minPT)
+					# elif not(use_closest_agent):
+					# 	# chose the agent within the radius but furthest from the AV
+					# 	best_candidate = np.where(shortestPT_per_agent == maxPT)
+			
+					#print("best_candidate ID=" , best_candidate)
+					#print(type(best_candidate))
+					bc_arr = np.asarray(best_candidate)
+					#print(bc_arr)
+					#print(np.shape(bc_arr))
+					flat_bc = bc_arr.flatten()
+					# print("best_candidate ID=" , flat_bc)
+					best_candidate = flat_bc[0]
+
+
+					#Is there more the 1 agent with best PT?
+					no_best_candidate = np.shape(best_candidate)
+					# print("no_best_candidate =" , no_best_candidate)
+
+
+						
+
+					if(diag):raw_input("Press Enter to continue...")
 			else:
 				best_candidate = -1
 
@@ -1227,7 +1302,7 @@ def Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, trig
 			#print("\n")
 
 
-	# if(diag):raw_input("Press Enter to continue...")
+	if(diag):raw_input("Press Enter to continue...")
 
 	# write position log
 	index = "%4i, %4i, %4i" % (nExp, simTime, AV_y)
@@ -1424,7 +1499,7 @@ gridH, gridW = 12, 66			# Each grid unit is 1.5m square
 pavement_rows = [0,1,10,11] 	#grid row of each pavement
 vAV = 6 						# 6u/s ~9.1m/s ~20mph
 vPed = 1 						# 1u/s ~1.4m/s ~3mph
-nA = 3							# Number of agents
+nA = 10							# Number of agents
 delay = 0.35 					# delay between each frame, slows sim down
 vt = 100						# points for a valid test
 AV_y = 0						# AV start position along road
@@ -1440,8 +1515,12 @@ loopAgentList = True 			# use nAlist to loop through nA
 # 	RandBehaviour = walk pavements, randomly cross road with 1/11 chance
 # 	Proximity = cross when agent within specified radius
 #	Election = elects a single agent within range to cross road
+
 agentChoices = ['RandAction', 'RandBehaviour','Proximity','Election']
-agentBehaviour = agentChoices[3] #TODO replace with CL arg
+agentBehaviour = agentChoices[3] 	# TODO replace with CL arg
+TR = 15 							# Proximity/Election Trigger Radius
+ECA = True							# If election is held, choose closest to AV, else furthest
+CP = True 							# Elect agents on pavement closest to the AV
 
 # ======================================================================
 # --- Non-User Experiment Params ---------------------------------------
@@ -1575,9 +1654,9 @@ for nA in nAList:
 		if agentBehaviour == 'RandBehaviour':
 			randomBehaviour(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
 		if agentBehaviour == 'Proximity':
-			Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, diag=diag)
+			Proximity(simTime, nA, agentState, pLog, rLog, nExp, AV_y, trigger_radius=TR, diag=diag)
 		if agentBehaviour == 'Election':
-			Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, diag=diag)
+			Election(simTime, nA, agentState, XR_WD_status, pLog, rLog, nExp, AV_y, CP=CP, ECA=ECA, trigger_radius=TR, diag=diag)
 
 
 		# render the scene
